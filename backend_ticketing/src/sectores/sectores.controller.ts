@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   ParseIntPipe,
+  Query,
 } from '@nestjs/common';
 import { SectoresService } from './sectores.service';
 import {
@@ -59,8 +60,12 @@ export class SectoresController {
 
   @Roles(Role.ADMIN)
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthUser) {
-    return this.sectoresService.remove(id, user.role);
+  remove(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('nombre_sector') nombre_sector: string | undefined,
+    @CurrentUser() _user: AuthUser,
+  ) {
+    return this.sectoresService.remove(id, nombre_sector);
   }
 
   @Roles(Role.ADMIN)
