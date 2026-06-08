@@ -14,6 +14,10 @@ export class CreateSectorDto {
 
 export class UpdateSectorDto {
   @IsOptional()
+  @IsString()
+  nombre_sector?: string;
+
+  @IsOptional()
   @IsInt()
   @Min(1)
   capacidad_max?: number;
