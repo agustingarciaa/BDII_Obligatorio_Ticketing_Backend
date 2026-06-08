@@ -33,6 +33,11 @@ export class RegisterDto {
   dir_codigo_postal!: string;
 }
 
+export class RegisterFuncionarioDto extends RegisterDto {
+  @IsInt()
+  numero_legajo!: number;
+}
+
 export class LoginDto {
   @IsEmail()
   mail!: string;
