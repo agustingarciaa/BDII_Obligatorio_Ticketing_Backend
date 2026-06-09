@@ -1,9 +1,38 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Role } from '../auth/roles.enum';
+import { DatabaseService } from '../database/database.service';
 import { ComprarEntradaDto, TransferirEntradaDto } from './entradas.dto';
+
+type VentaRow = {
+  id_venta: number;
+  fecha: string;
+  id_usuario: number;
+};
+
+type TransferenciaRow = {
+  id_transferencia: number;
+  entrada_id_boleto: number;
+  origen_id_usuario: number;
+  destino_id_usuario: number;
+  estado: string;
+  fecha: string;
+};
+
+type EntradaRow = {
+  id_boleto: number;
+  propietario_id_usuario: number;
+  estado: string;
+  activo: number | boolean;
+};
+
+type EstadoEntradaRow = {
+  estado: string;
+};
 
 @Injectable()
 export class EntradasService {
+  constructor(private readonly databaseService: DatabaseService) {}
+
   async comprar(_usuarioId: number, _dto: ComprarEntradaDto, _role: Role) {
     // TODO: Verificar stock en SECTOR_PARTIDO, crear VENTA e ENTRADA/S (máx 5)
   }
@@ -17,12 +46,33 @@ export class EntradasService {
   }
 
   async misCompras(_usuarioId: number, _role: Role) {
-    // TODO: SELECT v.*, COUNT(e.id_boleto) AS cantidad FROM VENTA v JOIN ENTRADA e ON e.venta_id_venta = v.id_venta
-    //   WHERE v.id_usuario = ? GROUP BY v.id_venta ORDER BY v.fecha DESC
+    const ventas = await this.databaseService.query<VentaRow[]>(
+      `
+      SELECT v.*, COUNT(e.id_boleto) AS cantidad
+      FROM VENTA v
+      JOIN ENTRADA e ON e.venta_id_venta = v.id_venta
+      WHERE v.id_usuario = ?
+      GROUP BY v.id_venta
+      ORDER BY v.fecha DESC
+      `,
+      [_usuarioId],
+    );
+
+    return ventas;
   }
 
   async misTransferencias(_usuarioId: number, _role: Role) {
-    // TODO: SELECT * FROM TRANSFERENCIA WHERE origen_id_usuario = ? OR destino_id_usuario = ? ORDER BY fecha DESC
+    const transferencias = await this.databaseService.query<TransferenciaRow[]>(
+      `
+      SELECT *
+      FROM TRANSFERENCIA
+      WHERE origen_id_usuario = ? OR destino_id_usuario = ?
+      ORDER BY fecha DESC
+      `,
+      [_usuarioId, _usuarioId],
+    );
+
+    return transferencias;
   }
 
   async aceptarTransferencia(
@@ -31,7 +81,7 @@ export class EntradasService {
     _role: Role,
   ) {
     // TODO: UPDATE ENTRADA SET propietario_id_usuario = destino_id_usuario WHERE id_boleto = entrada_id_boleto
-    //   UPDATE TRANSFERENCIA SET estado = 'aceptada' WHERE id_transferencia = ?
+    // UPDATE TRANSFERENCIA SET estado = 'aceptada' WHERE id_transferencia = ?
   }
 
   async rechazarTransferencia(
@@ -43,10 +93,36 @@ export class EntradasService {
   }
 
   async misEntradas(_usuarioId: number, _role: Role) {
-    // TODO: SELECT e.* FROM ENTRADA e WHERE e.propietario_id_usuario = ? AND e.estado = 'activo' AND e.activo = TRUE
+    const entradas = await this.databaseService.query<EntradaRow[]>(
+      `
+      SELECT e.*
+      FROM ENTRADA e
+      WHERE e.propietario_id_usuario = ?
+        AND e.estado = 'activo'
+        AND e.activo = TRUE
+      `,
+      [_usuarioId],
+    );
+
+    return entradas;
   }
 
   async consultarValidacion(_entradaId: number, _role: Role) {
-    // TODO: SELECT estado FROM ENTRADA WHERE id_boleto = ?
+    const entradas = await this.databaseService.query<EstadoEntradaRow>(
+      `
+      SELECT estado
+      FROM ENTRADA
+      WHERE id_boleto = ?
+      `,
+      [_entradaId],
+    );
+
+    const entrada = entradas[0];
+
+    if (!entrada) {
+      throw new NotFoundException('Entrada no encontrada');
+    }
+
+    return { estado: entrada.estado };
   }
 }
