@@ -38,7 +38,7 @@ export class PartidosController {
   @Roles(Role.ADMIN)
   @Post()
   create(@Body() dto: CreatePartidoDto, @CurrentUser() user: AuthUser) {
-    return this.partidosService.create(dto, user.role);
+    return this.partidosService.create(dto, user);
   }
 
   @Roles(Role.ADMIN)
@@ -48,13 +48,21 @@ export class PartidosController {
     @Body() dto: UpdatePartidoDto,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.partidosService.update(id, dto, user.role);
+    return this.partidosService.update(id, dto, user);
   }
 
   @Roles(Role.ADMIN)
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthUser) {
-    return this.partidosService.remove(id, user.role);
+    return this.partidosService.remove(id, user);
+  }
+
+  @Get(':id/sectores')
+  getSectores(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.partidosService.getSectores(id, user.role);
   }
 
   @Roles(Role.ADMIN)
@@ -64,6 +72,6 @@ export class PartidosController {
     @Body() dto: HabilitarSectorPartidoDto,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.partidosService.habilitarSector(id, dto, user.role);
+    return this.partidosService.habilitarSector(id, dto, user);
   }
 }
