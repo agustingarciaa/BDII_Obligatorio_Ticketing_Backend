@@ -25,15 +25,16 @@ type EntradaRow = {
   activo: number | boolean;
 };
 
-type EstadoEntradaRow = {
-  estado: string;
-};
-
 @Injectable()
 export class EntradasService {
   constructor(private readonly databaseService: DatabaseService) {}
 
-  async comprar(_usuarioId: number, _dto: ComprarEntradaDto, _role: Role) {
+  async comprar(
+    _usuarioId: number,
+
+    _dto: ComprarEntradaDto,
+    _role: Role,
+  ) {
     // TODO: Verificar stock en SECTOR_PARTIDO, crear VENTA e ENTRADA/S (máx 5)
   }
 
@@ -42,7 +43,8 @@ export class EntradasService {
     _dto: TransferirEntradaDto,
     _role: Role,
   ) {
-    // TODO: INSERT INTO TRANSFERENCIA (entrada_id_boleto, origen_id_usuario, destino_id_usuario) con estado 'pendiente'
+    // TODO: INSERT INTO TRANSFERENCIA (entrada_id_boleto, origen_id_usuario, destino_id_usuario)
+    // con estado 'pendiente'
   }
 
   async misCompras(_usuarioId: number, _role: Role) {
@@ -64,11 +66,11 @@ export class EntradasService {
   async misTransferencias(_usuarioId: number, _role: Role) {
     const transferencias = await this.databaseService.query<TransferenciaRow[]>(
       `
-      SELECT *
-      FROM TRANSFERENCIA
-      WHERE origen_id_usuario = ? OR destino_id_usuario = ?
-      ORDER BY fecha DESC
-      `,
+        SELECT *
+        FROM TRANSFERENCIA
+        WHERE origen_id_usuario = ? OR destino_id_usuario = ?
+        ORDER BY fecha DESC
+        `,
       [_usuarioId, _usuarioId],
     );
 
@@ -80,8 +82,11 @@ export class EntradasService {
     _usuarioId: number,
     _role: Role,
   ) {
-    // TODO: UPDATE ENTRADA SET propietario_id_usuario = destino_id_usuario WHERE id_boleto = entrada_id_boleto
-    // UPDATE TRANSFERENCIA SET estado = 'aceptada' WHERE id_transferencia = ?
+    // TODO: UPDATE ENTRADA SET propietario_id_usuario = destino_id_usuario
+    // WHERE id_boleto = entrada_id_boleto
+    // TODO: UPDATE TRANSFERENCIA
+    // SET estado = 'aceptada'
+    // WHERE id_transferencia = ?
   }
 
   async rechazarTransferencia(
@@ -89,7 +94,9 @@ export class EntradasService {
     _usuarioId: number,
     _role: Role,
   ) {
-    // TODO: UPDATE TRANSFERENCIA SET estado = 'rechazada' WHERE id_transferencia = ?
+    // TODO: UPDATE TRANSFERENCIA
+    // SET estado = 'rechazada'
+    // WHERE id_transferencia = ?
   }
 
   async misEntradas(_usuarioId: number, _role: Role) {
@@ -107,20 +114,33 @@ export class EntradasService {
     return entradas;
   }
 
-  async consultarValidacion(_entradaId: number, _role: Role) {
-    const entradas = await this.databaseService.query<EstadoEntradaRow>(
+  async consultarValidacion(
+    entradaId: number,
+
+    usuarioId: number,
+    role: Role,
+  ) {
+    const entradas = await this.databaseService.query<EntradaRow>(
       `
-      SELECT estado
+      SELECT *
       FROM ENTRADA
       WHERE id_boleto = ?
       `,
-      [_entradaId],
+      [entradaId],
     );
 
     const entrada = entradas[0];
 
     if (!entrada) {
       throw new NotFoundException('Entrada no encontrada');
+    }
+
+    if (role === Role.CLIENTE && entrada.propietario_id_usuario !== usuarioId) {
+      throw new NotFoundException('Entrada no encontrada');
+    }
+
+    if (role === Role.FUNCIONARIO) {
+      throw new NotFoundException('No autorizado');
     }
 
     return { estado: entrada.estado };

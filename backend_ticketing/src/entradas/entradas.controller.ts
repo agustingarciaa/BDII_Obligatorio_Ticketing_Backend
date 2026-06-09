@@ -55,6 +55,19 @@ export class EntradasController {
     );
   }
 
+  @Get('validacion/:id')
+  consultarValidacion(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.entradasService.consultarValidacion(
+      id,
+
+      user.userId,
+
+      user.role,
+    );
+  }
   @Put('transferencias/:id/rechazar')
   rechazarTransferencia(
     @Param('id', ParseIntPipe) id: number,
