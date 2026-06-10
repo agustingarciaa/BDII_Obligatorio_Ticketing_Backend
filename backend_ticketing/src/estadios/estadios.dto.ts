@@ -23,9 +23,4 @@ export class UpdateEstadioDto {
   @IsOptional()
   @IsString()
   ciudad?: string;
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  capacidad?: number;
 }
