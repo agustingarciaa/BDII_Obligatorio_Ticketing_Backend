@@ -9,7 +9,7 @@ export class EstadiosService {
 
   async findAll(_role: Role) {
     const stadiums = await this.databaseService.query(
-      'SELECT * FROM estadio',
+      'SELECT  id_estadio, nombre, pais, ciudad FROM estadio WHERE activo = TRUE',
       [],
       _role,
     );
@@ -18,7 +18,7 @@ export class EstadiosService {
 
   async findOne(_id: number, _role: Role) {
     const stadium = await this.databaseService.query(
-      `SELECT * FROM estadio WHERE id = ?`,
+      `SELECT * FROM estadio WHERE id = ? AND activo = TRUE`,
       [_id],
       _role,
     );
@@ -63,5 +63,9 @@ export class EstadiosService {
     return { message: 'Estadio actualizado correctamente' };
   }
 
-  async remove(_id: number, _role: Role) {}
+  async remove(_id: number, _role: Role) {
+    const query = `UPDATE estadio SET activo = FALSE WHERE id = ?`;
+    await this.databaseService.query(query, [_id], _role);
+    return { message: 'Se elimino el estadio' };
+  }
 }
