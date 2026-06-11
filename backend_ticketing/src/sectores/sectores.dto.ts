@@ -15,6 +15,10 @@ export class CreateSectorDto {
 export class UpdateSectorDto {
   @IsOptional()
   @IsString()
+  nombre_sector_actual?: string;
+
+  @IsOptional()
+  @IsString()
   nombre_sector?: string;
 
   @IsOptional()

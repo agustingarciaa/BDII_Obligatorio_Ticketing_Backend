@@ -44,8 +44,12 @@ export class SectoresController {
 
   @Roles(Role.ADMIN)
   @Post()
-  create(@Body() dto: CreateSectorDto, @CurrentUser() user: AuthUser) {
-    return this.sectoresService.create(dto, user.role);
+  create(
+    @Body() dto: CreateSectorDto,
+
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.sectoresService.create(dto, user.userId, user.role);
   }
 
   @Roles(Role.ADMIN)
@@ -55,17 +59,22 @@ export class SectoresController {
     @Body() dto: UpdateSectorDto,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.sectoresService.update(id, dto, user.role);
+    return this.sectoresService.update(id, dto, user.userId, user.role);
   }
 
   @Roles(Role.ADMIN)
   @Delete(':id')
   remove(
     @Param('id', ParseIntPipe) id: number,
-    @Query('nombre_sector') nombre_sector: string | undefined,
-    @CurrentUser() _user: AuthUser,
+    @Query('nombre_sector') nombreSector: string | undefined,
+    @CurrentUser() user: AuthUser,
   ) {
-    return this.sectoresService.remove(id, nombre_sector);
+    return this.sectoresService.remove(
+      id,
+      nombreSector,
+      user.userId,
+      user.role,
+    );
   }
 
   @Roles(Role.ADMIN)
