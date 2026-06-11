@@ -1,15 +1,15 @@
 import {
   BadRequestException,
-  Injectable,
-  NotFoundException,
   ConflictException,
   ForbiddenException,
+  Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 import { Role } from '../auth/roles.enum';
 import {
+  AsignarFuncionarioSectorDto,
   CreateSectorDto,
   UpdateSectorDto,
-  AsignarFuncionarioSectorDto,
 } from './sectores.dto';
 import { DatabaseService } from '../database/database.service';
 
@@ -54,7 +54,9 @@ export class SectoresService {
 
   async findAll(_role: Role) {
     const rows = await this.databaseService.query<SectorRow>(
-      'SELECT nombre_sector, id_estadio, capacidad_max, activo FROM SECTOR WHERE activo = TRUE',
+      `SELECT nombre_sector, id_estadio, capacidad_max, activo
+       FROM SECTOR
+       WHERE activo = TRUE`,
     );
 
     return rows.map((r) => ({
@@ -67,7 +69,10 @@ export class SectoresService {
 
   async findOne(id_estadio: number, _role: Role) {
     const rows = await this.databaseService.query<SectorRow>(
-      'SELECT nombre_sector, id_estadio, capacidad_max, activo FROM SECTOR WHERE id_estadio = ? AND activo = TRUE',
+      `SELECT nombre_sector, id_estadio, capacidad_max, activo
+       FROM SECTOR
+       WHERE id_estadio = ?
+         AND activo = TRUE`,
       [id_estadio],
     );
 
@@ -95,7 +100,11 @@ export class SectoresService {
     }
 
     const [existing] = await this.databaseService.query<SectorRow>(
-      'SELECT nombre_sector, id_estadio, activo FROM SECTOR WHERE nombre_sector = ? AND id_estadio = ? LIMIT 1',
+      `SELECT nombre_sector, id_estadio, activo
+       FROM SECTOR
+       WHERE nombre_sector = ?
+         AND id_estadio = ?
+       LIMIT 1`,
       [nombre, dto.id_estadio],
     );
 
@@ -105,7 +114,11 @@ export class SectoresService {
 
     if (existing && !existing.activo) {
       await this.databaseService.query(
-        'UPDATE SECTOR SET capacidad_max = ?, activo = TRUE WHERE nombre_sector = ? AND id_estadio = ?',
+        `UPDATE SECTOR
+         SET capacidad_max = ?,
+             activo = TRUE
+         WHERE nombre_sector = ?
+           AND id_estadio = ?`,
         [dto.capacidad_max, nombre, dto.id_estadio],
       );
 
@@ -118,7 +131,9 @@ export class SectoresService {
     }
 
     await this.databaseService.query(
-      'INSERT INTO SECTOR (nombre_sector, id_estadio, capacidad_max, activo) VALUES (?, ?, ?, TRUE)',
+      `INSERT INTO SECTOR
+       (nombre_sector, id_estadio, capacidad_max, activo)
+       VALUES (?, ?, ?, TRUE)`,
       [nombre, dto.id_estadio, dto.capacidad_max],
     );
 
@@ -154,7 +169,9 @@ export class SectoresService {
     const [sector] = await this.databaseService.query<SectorRow>(
       `SELECT nombre_sector, id_estadio, capacidad_max, activo
        FROM SECTOR
-       WHERE nombre_sector = ? AND id_estadio = ? AND activo = TRUE
+       WHERE nombre_sector = ?
+         AND id_estadio = ?
+         AND activo = TRUE
        LIMIT 1`,
       [nombreActual, id_estadio],
     );
@@ -167,7 +184,9 @@ export class SectoresService {
       const dupRows = await this.databaseService.query<SectorRow>(
         `SELECT nombre_sector
          FROM SECTOR
-         WHERE nombre_sector = ? AND id_estadio = ? AND activo = TRUE
+         WHERE nombre_sector = ?
+           AND id_estadio = ?
+           AND activo = TRUE
          LIMIT 1`,
         [nuevoNombre, id_estadio],
       );
@@ -200,7 +219,9 @@ export class SectoresService {
       `UPDATE SECTOR
        SET nombre_sector = COALESCE(?, nombre_sector),
            capacidad_max = COALESCE(?, capacidad_max)
-       WHERE nombre_sector = ? AND id_estadio = ? AND activo = TRUE`,
+       WHERE nombre_sector = ?
+         AND id_estadio = ?
+         AND activo = TRUE`,
       [
         nuevoNombre || null,
         dto.capacidad_max ?? null,
@@ -237,7 +258,9 @@ export class SectoresService {
     const [sector] = await this.databaseService.query<SectorRow>(
       `SELECT nombre_sector
        FROM SECTOR
-       WHERE nombre_sector = ? AND id_estadio = ? AND activo = TRUE
+       WHERE nombre_sector = ?
+         AND id_estadio = ?
+         AND activo = TRUE
        LIMIT 1`,
       [nombre, id_estadio],
     );
@@ -279,7 +302,8 @@ export class SectoresService {
     await this.databaseService.query(
       `UPDATE SECTOR
        SET activo = FALSE
-       WHERE nombre_sector = ? AND id_estadio = ?`,
+       WHERE nombre_sector = ?
+         AND id_estadio = ?`,
       [nombre, id_estadio],
     );
 
@@ -292,19 +316,23 @@ export class SectoresService {
 
   async misSectores(funcionarioId: number, _role: Role) {
     const rows = await this.databaseService.query<MisSectorRow>(
-      `SELECT 
-         s.nombre_sector,
-         s.id_estadio,
-         s.capacidad_max,
-         s.activo,
-         f.sectorpartido_id_evento
-       FROM SECTOR s
-       JOIN FUNCIONARIO_SECTOR_PARTIDO f
-         ON f.sectorpartido_nombre_sector = s.nombre_sector
-        AND f.sectorpartido_id_estadio = s.id_estadio
+      `SELECT s.nombre_sector,
+              s.id_estadio,
+              s.capacidad_max,
+              s.activo,
+              sp.partido_id_evento AS sectorpartido_id_evento
+       FROM FUNCIONARIO_SECTOR_PARTIDO f
+       JOIN SECTOR s
+         ON s.nombre_sector = f.sectorpartido_nombre_sector
+        AND s.id_estadio = f.sectorpartido_id_estadio
+       JOIN SECTOR_PARTIDO sp
+         ON sp.sector_nombre_sector = f.sectorpartido_nombre_sector
+        AND sp.sector_id_estadio = f.sectorpartido_id_estadio
+        AND sp.partido_id_evento = f.sectorpartido_id_evento
        WHERE f.funcionario_id_usuario = ?
          AND f.activo = TRUE
-         AND s.activo = TRUE`,
+         AND s.activo = TRUE
+         AND sp.activo = TRUE`,
       [funcionarioId],
     );
 
@@ -317,7 +345,11 @@ export class SectoresService {
     }));
   }
 
-  async asignarFuncionario(dto: AsignarFuncionarioSectorDto, _role: Role) {
+  async asignarFuncionario(
+    dto: AsignarFuncionarioSectorDto,
+    userId: number,
+    _role: Role,
+  ) {
     const {
       funcionario_id_usuario,
       sectorpartido_nombre_sector,
@@ -325,10 +357,57 @@ export class SectoresService {
       sectorpartido_id_evento,
     } = dto;
 
+    await this.validarJurisdiccionAdmin(userId, sectorpartido_id_estadio);
+
+    const [funcionario] = await this.databaseService.query<{
+      id_usuario: number;
+    }>(
+      `SELECT id_usuario
+       FROM FUNCIONARIO_VALIDACION
+       WHERE id_usuario = ?
+         AND activo = TRUE
+       LIMIT 1`,
+      [funcionario_id_usuario],
+    );
+
+    if (!funcionario) {
+      throw new NotFoundException('El funcionario no existe o no está activo.');
+    }
+
+    const [sectorPartido] = await this.databaseService.query<{
+      sector_nombre_sector: string;
+    }>(
+      `SELECT sector_nombre_sector
+       FROM SECTOR_PARTIDO
+       WHERE sector_nombre_sector = ?
+         AND sector_id_estadio = ?
+         AND partido_id_evento = ?
+         AND activo = TRUE
+       LIMIT 1`,
+      [
+        sectorpartido_nombre_sector,
+        sectorpartido_id_estadio,
+        sectorpartido_id_evento,
+      ],
+    );
+
+    if (!sectorPartido) {
+      throw new NotFoundException(
+        'El sector-partido no existe o no está activo.',
+      );
+    }
+
     const existingRows = await this.databaseService.query<{
       funcionario_id_usuario: number;
+      activo: number | boolean;
     }>(
-      'SELECT funcionario_id_usuario FROM FUNCIONARIO_SECTOR_PARTIDO WHERE funcionario_id_usuario = ? AND sectorpartido_nombre_sector = ? AND sectorpartido_id_estadio = ? AND sectorpartido_id_evento = ? LIMIT 1',
+      `SELECT funcionario_id_usuario, activo
+       FROM FUNCIONARIO_SECTOR_PARTIDO
+       WHERE funcionario_id_usuario = ?
+         AND sectorpartido_nombre_sector = ?
+         AND sectorpartido_id_estadio = ?
+         AND sectorpartido_id_evento = ?
+       LIMIT 1`,
       [
         funcionario_id_usuario,
         sectorpartido_nombre_sector,
@@ -338,8 +417,19 @@ export class SectoresService {
     );
 
     if (existingRows.length) {
+      if (existingRows[0].activo) {
+        throw new ConflictException(
+          'El funcionario ya está asignado a ese sector-partido.',
+        );
+      }
+
       await this.databaseService.query(
-        'UPDATE FUNCIONARIO_SECTOR_PARTIDO SET activo = TRUE WHERE funcionario_id_usuario = ? AND sectorpartido_nombre_sector = ? AND sectorpartido_id_estadio = ? AND sectorpartido_id_evento = ?',
+        `UPDATE FUNCIONARIO_SECTOR_PARTIDO
+         SET activo = TRUE
+         WHERE funcionario_id_usuario = ?
+           AND sectorpartido_nombre_sector = ?
+           AND sectorpartido_id_estadio = ?
+           AND sectorpartido_id_evento = ?`,
         [
           funcionario_id_usuario,
           sectorpartido_nombre_sector,
@@ -352,7 +442,13 @@ export class SectoresService {
     }
 
     await this.databaseService.query(
-      'INSERT INTO FUNCIONARIO_SECTOR_PARTIDO (funcionario_id_usuario, sectorpartido_nombre_sector, sectorpartido_id_estadio, sectorpartido_id_evento, activo) VALUES (?, ?, ?, ?, TRUE)',
+      `INSERT INTO FUNCIONARIO_SECTOR_PARTIDO
+       (funcionario_id_usuario,
+        sectorpartido_nombre_sector,
+        sectorpartido_id_estadio,
+        sectorpartido_id_evento,
+        activo)
+       VALUES (?, ?, ?, ?, TRUE)`,
       [
         funcionario_id_usuario,
         sectorpartido_nombre_sector,
