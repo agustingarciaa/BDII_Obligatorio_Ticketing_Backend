@@ -32,11 +32,7 @@ export class SectoresService {
     return nombre?.trim() ?? '';
   }
 
-  private async validarJurisdiccionAdmin(
-    userId: number,
-
-    id_estadio: number,
-  ) {
+  private async validarJurisdiccionAdmin(userId: number, id_estadio: number) {
     const rows = await this.databaseService.query<{ ok: number }>(
       `SELECT 1 AS ok
        FROM ADMIN_POR_SEDE aps
