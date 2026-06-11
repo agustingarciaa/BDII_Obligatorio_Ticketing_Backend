@@ -7,7 +7,9 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { RegisterDto, LoginDto, RegisterFuncionarioDto } from './auth.dto';
 import { Role } from './roles.enum';
+import type { AuthUser } from './decorators';
 import { DatabaseService } from '../database/database.service';
+import type { QueryParam } from '../database/database.service';
 
 interface UsuarioRow {
   id_usuario: number;
@@ -24,46 +26,19 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
-    const existing = await this.db.query<UsuarioRow>(
-      'SELECT id_usuario FROM USUARIO WHERE mail = ?',
-      [dto.mail],
-    );
-    if (existing.length > 0) {
-      throw new ConflictException('El mail ya está registrado');
-    }
+    await this.checkUsuarioDisponible(dto);
 
     const hash = await bcrypt.hash(dto.contrasena, 10);
 
-    await this.db.query(
-      `INSERT INTO USUARIO
-        (doc_pais, doc_tipo, doc_numero, mail, contrasena,
-         dir_pais, dir_localidad, dir_calle, dir_numero, dir_codigo_postal)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        dto.doc_pais,
-        dto.doc_tipo,
-        dto.doc_numero,
-        dto.mail,
-        hash,
-        dto.dir_pais,
-        dto.dir_localidad,
-        dto.dir_calle,
-        dto.dir_numero,
-        dto.dir_codigo_postal,
-      ],
-    );
+    const userId = await this.db.withTransaction(async (query) => {
+      const id = await this.insertUsuario(query, dto, hash);
 
-    const [usuario] = await this.db.query<UsuarioRow>(
-      'SELECT id_usuario FROM USUARIO WHERE mail = ?',
-      [dto.mail],
-    );
+      await query('INSERT INTO USUARIO_GENERAL (id_usuario) VALUES (?)', [id]);
 
-    await this.db.query(
-      'INSERT INTO USUARIO_GENERAL (id_usuario) VALUES (?)',
-      [usuario.id_usuario],
-    );
+      return id;
+    });
 
-    return this.generateToken(usuario.id_usuario, Role.CLIENTE);
+    return this.generateToken(userId, Role.CLIENTE);
   }
 
   async login(dto: LoginDto) {
@@ -76,7 +51,10 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    const passwordMatch = await bcrypt.compare(dto.contrasena, usuario.contrasena);
+    const passwordMatch = await bcrypt.compare(
+      dto.contrasena,
+      usuario.contrasena,
+    );
     if (!passwordMatch) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
@@ -85,45 +63,28 @@ export class AuthService {
     return this.generateToken(usuario.id_usuario, role);
   }
 
-  async registerFuncionario(dto: RegisterFuncionarioDto) {
-    const existing = await this.db.query<UsuarioRow>(
-      'SELECT id_usuario FROM USUARIO WHERE mail = ?',
-      [dto.mail],
+  async registerFuncionario(dto: RegisterFuncionarioDto, user: AuthUser) {
+    await this.checkUsuarioDisponible(dto, user.role);
+
+    const [legajo] = await this.db.query<{ id_usuario: number }>(
+      'SELECT id_usuario FROM FUNCIONARIO_VALIDACION WHERE numero_legajo = ?',
+      [dto.numero_legajo],
+      user.role,
     );
-    if (existing.length > 0) {
-      throw new ConflictException('El mail ya está registrado');
+    if (legajo) {
+      throw new ConflictException('El número de legajo ya está registrado');
     }
 
     const hash = await bcrypt.hash(dto.contrasena, 10);
 
-    await this.db.query(
-      `INSERT INTO USUARIO
-        (doc_pais, doc_tipo, doc_numero, mail, contrasena,
-         dir_pais, dir_localidad, dir_calle, dir_numero, dir_codigo_postal)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        dto.doc_pais,
-        dto.doc_tipo,
-        dto.doc_numero,
-        dto.mail,
-        hash,
-        dto.dir_pais,
-        dto.dir_localidad,
-        dto.dir_calle,
-        dto.dir_numero,
-        dto.dir_codigo_postal,
-      ],
-    );
+    await this.db.withTransaction(async (query) => {
+      const id = await this.insertUsuario(query, dto, hash);
 
-    const [usuario] = await this.db.query<UsuarioRow>(
-      'SELECT id_usuario FROM USUARIO WHERE mail = ?',
-      [dto.mail],
-    );
-
-    await this.db.query(
-      'INSERT INTO FUNCIONARIO_VALIDACION (id_usuario, numero_legajo) VALUES (?, ?)',
-      [usuario.id_usuario, dto.numero_legajo],
-    );
+      await query(
+        'INSERT INTO FUNCIONARIO_VALIDACION (id_usuario, numero_legajo) VALUES (?, ?)',
+        [id, dto.numero_legajo],
+      );
+    }, user.role);
 
     return { message: 'Funcionario registrado correctamente' };
   }
@@ -138,6 +99,63 @@ export class AuthService {
     };
   }
 
+  private async checkUsuarioDisponible(dto: RegisterDto, role?: Role) {
+    const existingMail = await this.db.query<UsuarioRow>(
+      'SELECT id_usuario FROM USUARIO WHERE mail = ?',
+      [dto.mail],
+      role,
+    );
+    if (existingMail.length > 0) {
+      throw new ConflictException('El mail ya está registrado');
+    }
+
+    const existingDoc = await this.db.query<UsuarioRow>(
+      'SELECT id_usuario FROM USUARIO WHERE doc_pais = ? AND doc_tipo = ? AND doc_numero = ?',
+      [dto.doc_pais, dto.doc_tipo, dto.doc_numero],
+      role,
+    );
+    if (existingDoc.length > 0) {
+      throw new ConflictException('El documento ya está registrado');
+    }
+  }
+
+  private async insertUsuario(
+    query: <R = unknown>(sql: string, params?: QueryParam[]) => Promise<R[]>,
+    dto: RegisterDto,
+    hash: string,
+  ): Promise<number> {
+    const result = await query(
+      `INSERT INTO USUARIO
+        (doc_pais, doc_tipo, doc_numero, mail, contrasena,
+         dir_pais, dir_localidad, dir_calle, dir_numero, dir_codigo_postal)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        dto.doc_pais,
+        dto.doc_tipo,
+        dto.doc_numero,
+        dto.mail,
+        hash,
+        dto.dir_pais,
+        dto.dir_localidad,
+        dto.dir_calle,
+        dto.dir_numero,
+        dto.dir_codigo_postal,
+      ],
+    );
+
+    const id = (result as unknown as { insertId: number }).insertId;
+
+    const telefonos = [...new Set(dto.telefonos ?? [])];
+    for (const telefono of telefonos) {
+      await query(
+        'INSERT INTO TELEFONO_USUARIO (id_usuario, telefono) VALUES (?, ?)',
+        [id, telefono],
+      );
+    }
+
+    return id;
+  }
+
   private async resolveRole(userId: number): Promise<Role> {
     const [admin] = await this.db.query<{ id_usuario: number }>(
       'SELECT id_usuario FROM ADMIN_POR_SEDE WHERE id_usuario = ? AND activo = TRUE',
@@ -150,6 +168,12 @@ export class AuthService {
       [userId],
     );
     if (funcionario) return Role.FUNCIONARIO;
+
+    const [cliente] = await this.db.query<{ id_usuario: number }>(
+      'SELECT id_usuario FROM USUARIO_GENERAL WHERE id_usuario = ? AND activo = TRUE',
+      [userId],
+    );
+    if (!cliente) throw new UnauthorizedException('Credenciales inválidas');
 
     return Role.CLIENTE;
   }

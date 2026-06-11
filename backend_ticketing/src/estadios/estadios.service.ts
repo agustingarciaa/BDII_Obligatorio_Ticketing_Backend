@@ -10,6 +10,7 @@ type EstadioRow = {
   ciudad: string;
   activo: number | boolean;
 };
+
 @Injectable()
 export class EstadiosService {
   constructor(private readonly databaseService: DatabaseService) {}
