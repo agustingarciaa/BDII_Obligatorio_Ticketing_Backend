@@ -1,8 +1,9 @@
 import {
   IsInt,
   IsDateString,
+  IsNumber,
   IsOptional,
-  IsDecimal,
+  IsPositive,
   IsString,
 } from 'class-validator';
 
@@ -45,6 +46,7 @@ export class HabilitarSectorPartidoDto {
   @IsInt()
   sector_id_estadio!: number;
 
-  @IsDecimal()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @IsPositive()
   costo_entrada!: number;
 }

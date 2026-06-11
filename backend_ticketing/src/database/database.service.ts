@@ -3,7 +3,7 @@ import mysql from 'mysql2/promise';
 import { Role } from '../auth/roles.enum';
 
 type PoolKey = Role | 'sistema';
-type QueryParam = string | number | boolean | null | Buffer | Date;
+export type QueryParam = string | number | boolean | null | Buffer | Date;
 
 const DB_USERS: Record<
   PoolKey,
@@ -71,5 +71,34 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     const pool = this.pools.get(role ?? 'sistema')!;
     const [rows] = await pool.execute<mysql.RowDataPacket[]>(sql, params);
     return rows as T[];
+  }
+
+  async withTransaction<T>(
+    fn: (
+      query: <R = unknown>(sql: string, params?: QueryParam[]) => Promise<R[]>,
+    ) => Promise<T>,
+    role?: Role,
+  ): Promise<T> {
+    const pool = this.pools.get(role ?? 'sistema')!;
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const result = await fn(
+        async <R = unknown>(sql: string, params?: QueryParam[]) => {
+          const [rows] = await connection.execute<mysql.RowDataPacket[]>(
+            sql,
+            params,
+          );
+          return rows as R[];
+        },
+      );
+      await connection.commit();
+      return result;
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
   }
 }

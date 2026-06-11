@@ -1,4 +1,11 @@
-import { IsEmail, IsString, IsInt, MinLength } from 'class-validator';
+import {
+  IsArray,
+  IsEmail,
+  IsInt,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
 
 export class RegisterDto {
   @IsString()
@@ -31,6 +38,11 @@ export class RegisterDto {
 
   @IsString()
   dir_codigo_postal!: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  telefonos?: string[];
 }
 
 export class RegisterFuncionarioDto extends RegisterDto {

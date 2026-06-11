@@ -193,9 +193,9 @@ GRANT SELECT, INSERT, UPDATE ON ticketing_db.ADMIN_POR_SEDE             TO 'tick
 GRANT SELECT, INSERT, UPDATE ON ticketing_db.FUNCIONARIO_VALIDACION     TO 'ticketing_admin'@'%';
 GRANT SELECT, INSERT, UPDATE ON ticketing_db.FUNCIONARIO_SECTOR_PARTIDO TO 'ticketing_admin'@'%';
 GRANT SELECT, INSERT, UPDATE ON ticketing_db.DISPOSITIVO                TO 'ticketing_admin'@'%';
-GRANT SELECT               ON ticketing_db.USUARIO                    TO 'ticketing_admin'@'%';
+GRANT SELECT, INSERT, UPDATE ON ticketing_db.USUARIO                  TO 'ticketing_admin'@'%';
+GRANT SELECT, INSERT, UPDATE ON ticketing_db.TELEFONO_USUARIO          TO 'ticketing_admin'@'%';
 GRANT SELECT               ON ticketing_db.USUARIO_GENERAL             TO 'ticketing_admin'@'%';
-GRANT SELECT               ON ticketing_db.TELEFONO_USUARIO            TO 'ticketing_admin'@'%';
 GRANT SELECT               ON ticketing_db.VENTA                       TO 'ticketing_admin'@'%';
 GRANT SELECT               ON ticketing_db.ENTRADA                     TO 'ticketing_admin'@'%';
 GRANT SELECT               ON ticketing_db.TRANSFERENCIA               TO 'ticketing_admin'@'%';
