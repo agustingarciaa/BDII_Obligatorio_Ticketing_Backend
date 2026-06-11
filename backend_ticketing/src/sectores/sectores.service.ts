@@ -324,14 +324,19 @@ export class SectoresService {
               s.id_estadio,
               s.capacidad_max,
               s.activo,
-              f.sectorpartido_id_evento
-       FROM SECTOR s
-       JOIN FUNCIONARIO_SECTOR_PARTIDO f
-         ON f.sectorpartido_nombre_sector = s.nombre_sector
-        AND f.sectorpartido_id_estadio = s.id_estadio
+              sp.partido_id_evento AS sectorpartido_id_evento
+       FROM FUNCIONARIO_SECTOR_PARTIDO f
+       JOIN SECTOR s
+         ON s.nombre_sector = f.sectorpartido_nombre_sector
+        AND s.id_estadio = f.sectorpartido_id_estadio
+       JOIN SECTOR_PARTIDO sp
+         ON sp.sector_nombre_sector = f.sectorpartido_nombre_sector
+        AND sp.sector_id_estadio = f.sectorpartido_id_estadio
+        AND sp.partido_id_evento = f.sectorpartido_id_evento
        WHERE f.funcionario_id_usuario = ?
          AND f.activo = TRUE
-         AND s.activo = TRUE`,
+         AND s.activo = TRUE
+         AND sp.activo = TRUE`,
       [funcionarioId],
     );
 
@@ -398,8 +403,9 @@ export class SectoresService {
 
     const existingRows = await this.databaseService.query<{
       funcionario_id_usuario: number;
+      activo: number | boolean;
     }>(
-      `SELECT funcionario_id_usuario
+      `SELECT funcionario_id_usuario, activo
        FROM FUNCIONARIO_SECTOR_PARTIDO
        WHERE funcionario_id_usuario = ?
          AND sectorpartido_nombre_sector = ?
@@ -415,6 +421,12 @@ export class SectoresService {
     );
 
     if (existingRows.length) {
+      if (existingRows[0].activo) {
+        throw new ConflictException(
+          'El funcionario ya está asignado a ese sector-partido.',
+        );
+      }
+
       await this.databaseService.query(
         `UPDATE FUNCIONARIO_SECTOR_PARTIDO
          SET activo = TRUE
