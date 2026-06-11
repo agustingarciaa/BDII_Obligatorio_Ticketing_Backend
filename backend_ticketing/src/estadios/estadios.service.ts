@@ -26,7 +26,7 @@ export class EstadiosService {
 
   async findAll(_role: Role) {
     const stadiums = await this.databaseService.query<EstadioRow>(
-      'SELECT  id_estadio, nombre, pais, ciudad FROM estadio WHERE activo = TRUE ORDER BY nombre',
+      'SELECT  id_estadio, nombre, pais, ciudad FROM Estadio WHERE activo = TRUE ORDER BY nombre',
       [],
       _role,
     );
@@ -35,7 +35,7 @@ export class EstadiosService {
 
   async findOne(_id: number, _role: Role) {
     const [stadium] = await this.databaseService.query<EstadioRow>(
-      `SELECT id_estadio, nombre, pais, ciudad FROM estadio WHERE id_estadio = ? AND activo = TRUE`,
+      `SELECT id_estadio, nombre, pais, ciudad FROM Estadio WHERE id_estadio = ? AND activo = TRUE`,
       [_id],
       _role,
     );
@@ -48,7 +48,7 @@ export class EstadiosService {
   }
 
   async create(_dto: CreateEstadioDto, _role: Role) {
-    const query = 'INSERT INTO estadio (nombre, pais, ciudad) VALUES (?, ?, ?)';
+    const query = 'INSERT INTO Estadio (nombre, pais, ciudad) VALUES (?, ?, ?)';
     const params = [_dto.nombre, _dto.pais, _dto.ciudad];
     await this.databaseService.query(query, params, _role);
     return { message: 'Estadio creado correctamente' };
@@ -56,7 +56,7 @@ export class EstadiosService {
 
   async update(_id: number, _dto: UpdateEstadioDto, _role: Role) {
     const [existing] = await this.databaseService.query<EstadioRow>(
-      'SELECT id_estadio FROM estadio WHERE id_estadio = ? AND activo = TRUE LIMIT 1',
+      'SELECT id_estadio FROM Estadio WHERE id_estadio = ? AND activo = TRUE LIMIT 1',
       [_id],
       _role,
     );
@@ -86,14 +86,14 @@ export class EstadiosService {
     }
 
     params.push(_id);
-    const query = `UPDATE estadio SET ${updates.join(', ')} WHERE id_estadio = ?`;
+    const query = `UPDATE Estadio SET ${updates.join(', ')} WHERE id_estadio = ?`;
     await this.databaseService.query(query, params as any[], _role);
     return { message: 'Estadio actualizado correctamente' };
   }
 
   async remove(_id: number, _role: Role) {
     const [existing] = await this.databaseService.query<EstadioRow>(
-      'SELECT id_estadio FROM estadio WHERE id_estadio = ? AND activo = TRUE LIMIT 1',
+      'SELECT id_estadio FROM Estadio WHERE id_estadio = ? AND activo = TRUE LIMIT 1',
       [_id],
       _role,
     );
@@ -101,7 +101,7 @@ export class EstadiosService {
     if (!existing) {
       throw new NotFoundException(`No existe un estadio activo con id ${_id}.`);
     }
-    const query = `UPDATE estadio SET activo = FALSE WHERE id_estadio = ?`;
+    const query = `UPDATE Estadio SET activo = FALSE WHERE id_estadio = ?`;
     await this.databaseService.query(query, [_id], _role);
     return { message: 'Se elimino el estadio', id_estadio: _id, activo: false };
   }
