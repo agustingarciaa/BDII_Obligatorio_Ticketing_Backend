@@ -8,6 +8,7 @@ import {
 import { Role } from '../auth/roles.enum';
 import type { AuthUser } from '../auth/decorators';
 import { DatabaseService } from '../database/database.service';
+import type { QueryParam } from '../database/database.service';
 import {
   CreatePartidoDto,
   UpdatePartidoDto,
@@ -83,10 +84,8 @@ export class PartidosService {
     role: Role,
     excludeId?: number,
   ) {
-    type QP = string | number | boolean | null | Buffer | Date;
-    const baseParams: QP[] = [estadioId, fechaHora as QP, fechaHora as QP];
-    const excludeClause =
-      excludeId !== undefined ? ' AND id_evento != ?' : '';
+    const baseParams: QueryParam[] = [estadioId, fechaHora, fechaHora];
+    const excludeClause = excludeId !== undefined ? ' AND id_evento != ?' : '';
     if (excludeId !== undefined) baseParams.push(excludeId);
 
     const [overlap] = await this.databaseService.query<{ id: number }>(
@@ -103,6 +102,23 @@ export class PartidosService {
     if (overlap) {
       throw new ConflictException(
         'Ya existe un evento en ese estadio dentro de la ventana de 3 horas.',
+      );
+    }
+  }
+
+  private async assertNoEntradas(
+    partidoId: number,
+    role: Role,
+    accion: string,
+  ) {
+    const [row] = await this.databaseService.query<{ n: number }>(
+      'SELECT COUNT(*) AS n FROM ENTRADA WHERE sectorpartido_id_evento = ? AND activo = TRUE',
+      [partidoId],
+      role,
+    );
+    if (Number(row.n) > 0) {
+      throw new ConflictException(
+        `No se puede ${accion} el partido ${partidoId}: ya tiene ${row.n} entrada(s) vendida(s).`,
       );
     }
   }
@@ -265,8 +281,10 @@ export class PartidosService {
       }
     }
 
-
-    if (dto.id_estadio !== undefined && dto.id_estadio !== existing.id_estadio) {
+    if (
+      dto.id_estadio !== undefined &&
+      dto.id_estadio !== existing.id_estadio
+    ) {
       const [sectorCount] = await this.databaseService.query<{ n: number }>(
         'SELECT COUNT(*) AS n FROM SECTOR_PARTIDO WHERE partido_id_evento = ? AND activo = TRUE',
         [id],
@@ -279,17 +297,24 @@ export class PartidosService {
       }
     }
 
+    const isCriticalChange =
+      dto.equipo_pais_local !== undefined ||
+      dto.equipo_pais_visitante !== undefined ||
+      dto.fecha_hora !== undefined;
+    if (isCriticalChange) {
+      await this.assertNoEntradas(id, user.role, 'modificar');
+    }
+
     // Chequeo lo de la jurisdicción
-    await this.checkAdminJurisdiction(user.userId, effectiveEstadioId, user.role);
+    await this.checkAdminJurisdiction(
+      user.userId,
+      effectiveEstadioId,
+      user.role,
+    );
 
     // Prevent overlapping events if stadium or time is changing (3-hour window)
     if (dto.id_estadio !== undefined || dto.fecha_hora !== undefined) {
-      await this.checkNoOverlap(
-        effectiveEstadioId,
-        fechaHora as string,
-        user.role,
-        id,
-      );
+      await this.checkNoOverlap(effectiveEstadioId, fechaHora, user.role, id);
     }
 
     await this.databaseService.query(
@@ -338,11 +363,17 @@ export class PartidosService {
       user.role,
     );
 
-    await this.databaseService.query(
-      'UPDATE PARTIDO SET activo = FALSE WHERE id_evento = ?',
-      [id],
-      user.role,
-    );
+    await this.assertNoEntradas(id, user.role, 'eliminar');
+
+    await this.databaseService.withTransaction(async (query) => {
+      await query(
+        'UPDATE SECTOR_PARTIDO SET activo = FALSE WHERE partido_id_evento = ?',
+        [id],
+      );
+      await query('UPDATE PARTIDO SET activo = FALSE WHERE id_evento = ?', [
+        id,
+      ]);
+    }, user.role);
 
     return { id, activo: false };
   }
@@ -393,28 +424,44 @@ export class PartidosService {
       user.role,
     );
 
-    const [existing] = await this.databaseService.query<SectorPartidoRow>(
-      'SELECT sector_nombre_sector FROM SECTOR_PARTIDO WHERE partido_id_evento = ? AND sector_nombre_sector = ? AND sector_id_estadio = ? LIMIT 1',
+    const [existing] = await this.databaseService.query<{
+      sector_nombre_sector: string;
+      activo: number | boolean;
+    }>(
+      'SELECT sector_nombre_sector, activo FROM SECTOR_PARTIDO WHERE partido_id_evento = ? AND sector_nombre_sector = ? AND sector_id_estadio = ? LIMIT 1',
       [partidoId, dto.sector_nombre_sector, dto.sector_id_estadio],
       user.role,
     );
 
-    if (existing) {
+    if (existing && Boolean(existing.activo)) {
       throw new ConflictException(
         `El sector ${dto.sector_nombre_sector} ya está habilitado para este partido.`,
       );
     }
 
-    await this.databaseService.query(
-      'INSERT INTO SECTOR_PARTIDO (partido_id_evento, sector_nombre_sector, sector_id_estadio, costo_entrada) VALUES (?, ?, ?, ?)',
-      [
-        partidoId,
-        dto.sector_nombre_sector,
-        dto.sector_id_estadio,
-        dto.costo_entrada,
-      ],
-      user.role,
-    );
+    if (existing) {
+      await this.databaseService.query(
+        'UPDATE SECTOR_PARTIDO SET activo = TRUE, costo_entrada = ? WHERE partido_id_evento = ? AND sector_nombre_sector = ? AND sector_id_estadio = ?',
+        [
+          dto.costo_entrada,
+          partidoId,
+          dto.sector_nombre_sector,
+          dto.sector_id_estadio,
+        ],
+        user.role,
+      );
+    } else {
+      await this.databaseService.query(
+        'INSERT INTO SECTOR_PARTIDO (partido_id_evento, sector_nombre_sector, sector_id_estadio, costo_entrada) VALUES (?, ?, ?, ?)',
+        [
+          partidoId,
+          dto.sector_nombre_sector,
+          dto.sector_id_estadio,
+          dto.costo_entrada,
+        ],
+        user.role,
+      );
+    }
 
     return {
       id_partido: partidoId,

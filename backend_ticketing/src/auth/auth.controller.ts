@@ -1,7 +1,8 @@
 import { Controller, Post, Body } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto, LoginDto, RegisterFuncionarioDto } from './auth.dto';
-import { Public, Roles } from './decorators';
+import { Public, Roles, CurrentUser } from './decorators';
+import type { AuthUser } from './decorators';
 import { Role } from './roles.enum';
 
 @Controller('auth')
@@ -27,7 +28,7 @@ export class AuthController {
 
   @Roles(Role.ADMIN)
   @Post('register/funcionario')
-  registerFuncionario(@Body() dto: RegisterFuncionarioDto) {
-    return this.authService.registerFuncionario(dto);
+  registerFuncionario(@Body() dto: RegisterFuncionarioDto, @CurrentUser() user: AuthUser) {
+    return this.authService.registerFuncionario(dto, user);
   }
 }
