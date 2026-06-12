@@ -153,7 +153,7 @@ CREATE TABLE ENTRADA (
 CREATE TABLE TRANSFERENCIA (
   id_transferencia   INT         PRIMARY KEY AUTO_INCREMENT,
   fecha              DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  estado             VARCHAR(50) NOT NULL DEFAULT 'pendiente',
+  estado             ENUM('aceptada', 'rechazada', 'pendiente') NOT NULL DEFAULT 'pendiente',  
   entrada_id_boleto      INT         NOT NULL,
   origen_id_usuario  INT         NOT NULL,
   destino_id_usuario INT         NOT NULL,
