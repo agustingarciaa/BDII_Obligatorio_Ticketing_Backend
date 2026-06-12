@@ -66,4 +66,11 @@ export class EntradasController {
       user.role,
     );
   }
+  @Get('validacion/:id')
+  consultarValidacion(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.entradasService.consultarValidacion(id, user.userId, user.role);
+  }
 }
