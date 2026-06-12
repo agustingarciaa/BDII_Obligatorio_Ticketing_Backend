@@ -76,7 +76,7 @@ CREATE TABLE DISPOSITIVO (
 CREATE TABLE USUARIO_GENERAL (
   id_usuario      INT         NOT NULL,
   fecha_registro      DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  estado_verificacion VARCHAR(50) NOT NULL DEFAULT 'pendiente',
+  estado_verificacion ENUM('verficado', 'pendiente', 'rechazado') NOT NULL DEFAULT 'pendiente',
   activo              BOOLEAN     NOT NULL DEFAULT TRUE,
   PRIMARY KEY (id_usuario),
   FOREIGN KEY (id_usuario) REFERENCES USUARIO(id_usuario) ON DELETE RESTRICT
@@ -125,7 +125,7 @@ CREATE TABLE FUNCIONARIO_SECTOR_PARTIDO (
 CREATE TABLE VENTA (
   id_venta       INT            PRIMARY KEY AUTO_INCREMENT,
   fecha          DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  estado         VARCHAR(50)    NOT NULL DEFAULT 'pendiente',
+  estado         ENUM('realizada', 'pendiente', 'cancelada')   NOT NULL DEFAULT 'pendiente',
   monto_total    DECIMAL(10, 2) NOT NULL,
   tasa_comision  DECIMAL(5, 4)  NOT NULL DEFAULT 0.0500,
   id_usuario INT            NOT NULL,
@@ -135,7 +135,7 @@ CREATE TABLE VENTA (
 
 CREATE TABLE ENTRADA (
   id_boleto          INT          PRIMARY KEY AUTO_INCREMENT,
-  estado             VARCHAR(50)  NOT NULL DEFAULT 'activo',
+  estado             ENUM('activo', 'vencida', 'utilizada')  NOT NULL DEFAULT 'activo',
   qr_token_actual    VARCHAR(255) NULL,
   qr_token_expira_en DATETIME     NULL,
   venta_id_venta       INT          NOT NULL,
@@ -153,7 +153,7 @@ CREATE TABLE ENTRADA (
 CREATE TABLE TRANSFERENCIA (
   id_transferencia   INT         PRIMARY KEY AUTO_INCREMENT,
   fecha              DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  estado             VARCHAR(50) NOT NULL DEFAULT 'pendiente',
+  estado             ENUM('aceptada', 'rechazada', 'pendiente') NOT NULL DEFAULT 'pendiente',  
   entrada_id_boleto      INT         NOT NULL,
   origen_id_usuario  INT         NOT NULL,
   destino_id_usuario INT         NOT NULL,
