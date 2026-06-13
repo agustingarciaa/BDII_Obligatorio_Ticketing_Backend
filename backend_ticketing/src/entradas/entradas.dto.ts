@@ -1,6 +1,14 @@
-import { IsInt, IsString, Max, Min } from 'class-validator';
+import {
+  ArrayMinSize,
+  IsArray,
+  IsInt,
+  IsString,
+  Min,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 
-export class ComprarEntradaDto {
+export class ItemCompraDto {
   @IsString()
   sectorpartido_nombre_sector!: string;
 
@@ -12,8 +20,15 @@ export class ComprarEntradaDto {
 
   @IsInt()
   @Min(1)
-  @Max(5)
   cantidad!: number;
+}
+
+export class ComprarEntradaDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => ItemCompraDto)
+  items!: ItemCompraDto[];
 }
 
 export class TransferirEntradaDto {
