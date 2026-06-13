@@ -28,7 +28,10 @@ export class AuthController {
 
   @Roles(Role.ADMIN)
   @Post('register/funcionario')
-  registerFuncionario(@Body() dto: RegisterFuncionarioDto, @CurrentUser() user: AuthUser) {
+  registerFuncionario(
+    @Body() dto: RegisterFuncionarioDto,
+    @CurrentUser() user: AuthUser,
+  ) {
     return this.authService.registerFuncionario(dto, user);
   }
 }

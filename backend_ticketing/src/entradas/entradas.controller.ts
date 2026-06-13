@@ -66,6 +66,7 @@ export class EntradasController {
       user.role,
     );
   }
+  @Roles(Role.CLIENTE, Role.FUNCIONARIO)
   @Get('validacion/:id')
   consultarValidacion(
     @Param('id', ParseIntPipe) id: number,

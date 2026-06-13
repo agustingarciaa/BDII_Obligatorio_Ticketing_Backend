@@ -1,12 +1,17 @@
 CREATE DATABASE IF NOT EXISTS ticketing_db;
 USE ticketing_db;
 
+CREATE TABLE EQUIPO (
+  pais   VARCHAR(50) PRIMARY KEY,
+  activo BOOLEAN     NOT NULL DEFAULT TRUE
+);
+
 CREATE TABLE ESTADIO (
   id_estadio  INT          PRIMARY KEY AUTO_INCREMENT,
   nombre      VARCHAR(100) NOT NULL,
   pais        VARCHAR(50)  NOT NULL,
   ciudad      VARCHAR(100) NOT NULL,
-  activo      BOOLEAN      NOT NULL DEFAULT TRUE
+  activo      BOOLEAN      NOT NULL DEFAULT TRUE,
   FOREIGN KEY (pais) REFERENCES EQUIPO(pais) ON DELETE RESTRICT
 );
 
@@ -17,11 +22,6 @@ CREATE TABLE SECTOR (
   activo         BOOLEAN     NOT NULL DEFAULT TRUE,
   PRIMARY KEY (nombre_sector, id_estadio),
   FOREIGN KEY (id_estadio) REFERENCES ESTADIO(id_estadio) ON DELETE RESTRICT
-);
-
-CREATE TABLE EQUIPO (
-  pais   VARCHAR(50) PRIMARY KEY,
-  activo BOOLEAN     NOT NULL DEFAULT TRUE
 );
 
 CREATE TABLE USUARIO (
@@ -76,7 +76,7 @@ CREATE TABLE DISPOSITIVO (
 CREATE TABLE USUARIO_GENERAL (
   id_usuario      INT         NOT NULL,
   fecha_registro      DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  estado_verificacion ENUM('verficado', 'pendiente', 'rechazado') NOT NULL DEFAULT 'pendiente',
+  estado_verificacion ENUM('verificado', 'pendiente', 'rechazado') NOT NULL DEFAULT 'pendiente',
   activo              BOOLEAN     NOT NULL DEFAULT TRUE,
   PRIMARY KEY (id_usuario),
   FOREIGN KEY (id_usuario) REFERENCES USUARIO(id_usuario) ON DELETE RESTRICT
