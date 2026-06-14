@@ -1,26 +1,14 @@
 import {
-  IsArray,
-  IsEmail,
+  IsString,
   IsInt,
   IsOptional,
-  IsString,
-  MinLength,
   Matches,
+  MinLength,
+  IsArray,
 } from 'class-validator';
 
-export class RegisterDto {
-  @IsString()
-  doc_pais!: string;
-
-  @IsString()
-  doc_tipo!: string;
-
-  @IsString()
-  doc_numero!: string;
-
-  @IsEmail({}, { message: 'El email debe contener un @ y ser válido' })
-  mail!: string;
-
+//Para que el usuario modifique sus propios datos de perfil:
+export class ModificarUsuarioDto {
   @IsString()
   @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })
   @Matches(
@@ -51,17 +39,4 @@ export class RegisterDto {
   @IsArray()
   @IsString({ each: true })
   telefonos?: string[];
-}
-
-export class RegisterFuncionarioDto extends RegisterDto {
-  @IsInt()
-  numero_legajo!: number;
-}
-
-export class LoginDto {
-  @IsEmail()
-  mail!: string;
-
-  @IsString()
-  contrasena!: string;
 }
