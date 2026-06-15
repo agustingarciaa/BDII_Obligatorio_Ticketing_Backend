@@ -13,6 +13,7 @@ import { DispositivosModule } from './dispositivos/dispositivos.module';
 import { EstadisticasModule } from './estadisticas/estadisticas.module';
 import { EntradasModule } from './entradas/entradas.module';
 import { ValidacionModule } from './validacion/validacion.module';
+import { UsuariosModule } from './usuarios/usuarios.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 
@@ -32,6 +33,7 @@ import { RolesGuard } from './auth/roles.guard';
     EstadisticasModule,
     EntradasModule,
     ValidacionModule,
+    UsuariosModule,
   ],
   controllers: [AppController],
   providers: [

@@ -9,31 +9,33 @@ import {
 
 //Para que el usuario modifique sus propios datos de perfil:
 export class ModificarUsuarioDto {
+  @IsOptional()
   @IsString()
   @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })
-  @Matches(
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
-    {
-      message:
-        'La contraseña debe contener: mayúsculas, minúsculas, números y caracteres especiales (@$!%*?&)',
-    },
-  )
-  contrasena!: string;
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}$/, {
+    message: 'La contraseña debe contener: mayúsculas, minúsculas y números',
+  })
+  contrasena?: string;
 
+  @IsOptional()
   @IsString()
-  dir_pais!: string;
+  dir_pais?: string;
 
+  @IsOptional()
   @IsString()
-  dir_localidad!: string;
+  dir_localidad?: string;
 
+  @IsOptional()
   @IsString()
-  dir_calle!: string;
+  dir_calle?: string;
 
+  @IsOptional()
   @IsInt()
-  dir_numero!: number;
+  dir_numero?: number;
 
+  @IsOptional()
   @IsString()
-  dir_codigo_postal!: string;
+  dir_codigo_postal?: string;
 
   @IsOptional()
   @IsArray()

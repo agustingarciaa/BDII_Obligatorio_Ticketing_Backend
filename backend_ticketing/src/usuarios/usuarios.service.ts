@@ -78,17 +78,56 @@ export class UsuariosService {
       params.push(hash);
     }
 
-    if (updates.length === 0) {
+    if (dto.dir_pais) {
+      updates.push('dir_pais = ?');
+      params.push(dto.dir_pais);
+    }
+    if (dto.dir_localidad) {
+      updates.push('dir_localidad = ?');
+      params.push(dto.dir_localidad);
+    }
+    if (dto.dir_calle) {
+      updates.push('dir_calle = ?');
+      params.push(dto.dir_calle);
+    }
+    if (typeof dto.dir_numero !== 'undefined') {
+      updates.push('dir_numero = ?');
+      params.push(dto.dir_numero);
+    }
+    if (dto.dir_codigo_postal) {
+      updates.push('dir_codigo_postal = ?');
+      params.push(dto.dir_codigo_postal);
+    }
+
+    if (updates.length === 0 && !dto.telefonos) {
       throw new BadRequestException('No hay datos para actualizar');
     }
 
-    params.push(userId);
+    if (updates.length > 0) {
+      params.push(userId);
+      await this.db.query(
+        `UPDATE USUARIO SET ${updates.join(', ')} WHERE id_usuario = ?`,
+        params,
+        role,
+      );
+    }
 
-    await this.db.query(
-      `UPDATE USUARIO SET ${updates.join(', ')} WHERE id_usuario = ?`,
-      params,
-      role,
-    );
+    if (Array.isArray(dto.telefonos) && dto.telefonos.length > 0) {
+      // Marcar existentes como inactivos
+      await this.db.query(
+        'UPDATE TELEFONO_USUARIO SET activo = FALSE WHERE id_usuario = ?',
+        [userId],
+        role,
+      );
+      // Insertar nuevos
+      for (const tel of dto.telefonos) {
+        await this.db.query(
+          'INSERT INTO TELEFONO_USUARIO (id_usuario, telefono, activo) VALUES (?, ?, TRUE) ON DUPLICATE KEY UPDATE activo = TRUE',
+          [userId, tel],
+          role,
+        );
+      }
+    }
 
     return { message: 'Datos actualizados correctamente' };
   }
