@@ -1,6 +1,7 @@
 import {
   Injectable,
   BadRequestException,
+  ConflictException,
   NotFoundException,
 } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
@@ -143,12 +144,49 @@ export class UsuariosService {
       throw new NotFoundException('Usuario no encontrado');
     }
 
-    // Marcar como inactivo en lugar de eliminar
-    await this.db.query(
-      'UPDATE USUARIO SET activo = FALSE WHERE id_usuario = ?',
+    // No se puede dar de baja con entradas activas para partidos a futuro
+    const [entradas] = await this.db.query<{ n: number }>(
+      `SELECT COUNT(*) AS n
+       FROM ENTRADA e
+       JOIN PARTIDO p ON p.id_evento = e.sectorpartido_id_evento
+       WHERE e.propietario_id_usuario = ?
+         AND e.activo = TRUE
+         AND e.estado = 'activo'
+         AND p.fecha_hora > NOW()`,
       [userId],
       role,
     );
+    if (Number(entradas.n) > 0) {
+      throw new ConflictException(
+        'No podés eliminar tu cuenta: tenés entradas activas para partidos futuros.',
+      );
+    }
+
+    // Ni con transferencias pendientes (enviadas o recibidas)
+    const [transferencias] = await this.db.query<{ n: number }>(
+      `SELECT COUNT(*) AS n
+       FROM TRANSFERENCIA
+       WHERE (origen_id_usuario = ? OR destino_id_usuario = ?)
+         AND estado = 'pendiente'
+         AND activo = TRUE`,
+      [userId, userId],
+      role,
+    );
+    if (Number(transferencias.n) > 0) {
+      throw new ConflictException(
+        'No podés eliminar tu cuenta: tenés transferencias pendientes de resolver.',
+      );
+    }
+
+    await this.db.withTransaction(async (query) => {
+      await query('UPDATE USUARIO SET activo = FALSE WHERE id_usuario = ?', [
+        userId,
+      ]);
+      await query(
+        'UPDATE USUARIO_GENERAL SET activo = FALSE WHERE id_usuario = ?',
+        [userId],
+      );
+    }, role);
 
     return { message: 'Cuenta eliminada correctamente' };
   }
