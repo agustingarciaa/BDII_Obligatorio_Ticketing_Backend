@@ -10,7 +10,8 @@ async function bootstrap() {
 
   app.enableCors({
     origin: process.env.ALLOWED_ORIGINS?.split(',') ?? [
-      'http://localhost:4200',
+      'http://localhost:5173',
+      'http://localhost:3001',
     ],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],

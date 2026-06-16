@@ -28,6 +28,6 @@ export class ValidacionController {
   @Roles(Role.FUNCIONARIO)
   @Post('escanear')
   escanear(@Body() dto: ValidarEntradaDto, @CurrentUser() user: AuthUser) {
-    return this.validacionService.escanear(dto, user.role);
+    return this.validacionService.escanear(dto, user);
   }
 }
