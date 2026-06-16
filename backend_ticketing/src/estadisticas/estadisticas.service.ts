@@ -27,6 +27,14 @@ type SectorPopularRow = {
   capacidad_max: number;
 };
 
+type EquipoPopularRow = {
+  pais: string;
+  partidos_jugados: number;
+  capacidad_total: number;
+  entradas_vendidas: number;
+  porcentaje_venta: number;
+};
+
 @Injectable()
 export class EstadisticasService {
   constructor(private readonly databaseService: DatabaseService) {}
@@ -59,6 +67,16 @@ export class EstadisticasService {
       dir_pais: row.dir_pais,
       dir_localidad: row.dir_localidad,
       cant_compras: Number(row.cant_compras),
+    };
+  }
+
+  private toEquiposPopulares(row: EquipoPopularRow) {
+    return {
+      pais: row.pais,
+      partidos_jugados: row.partidos_jugados,
+      capacidad_total: row.capacidad_total,
+      entradas_vendidas: row.entradas_vendidas,
+      porcentaje_ventas: row.porcentaje_venta,
     };
   }
 
@@ -184,5 +202,36 @@ export class EstadisticasService {
     );
 
     return rows.map((r) => this.toMasVendido(r));
+  }
+
+  async equiposPopulares(role: Role) {
+    const rows = await this.databaseService.query<EquipoPopularRow>(
+      `SELECT 
+    e.pais AS equipo,
+    COUNT(DISTINCT p.id_evento) AS partidos_jugados,
+    SUM(s.capacidad_max) AS capacidad_total,
+    COUNT(ent.id_boleto) AS entradas_vendidas,
+    ROUND(
+        (COUNT(ent.id_boleto) * 100.0 / NULLIF(SUM(s.capacidad_max), 0)), 
+        2
+    ) AS porcentaje_venta
+    FROM EQUIPO e
+    JOIN PARTIDO p ON (p.equipo_pais_local = e.pais OR p.equipo_pais_visitante = e.pais)
+        AND p.activo = TRUE
+    JOIN SECTOR_PARTIDO sp ON sp.partido_id_evento = p.id_evento AND sp.activo = TRUE
+    JOIN SECTOR s ON s.nombre_sector = sp.sector_nombre_sector 
+        AND s.id_estadio = sp.sector_id_estadio 
+        AND s.activo = TRUE
+    LEFT JOIN ENTRADA ent ON ent.sectorpartido_nombre_sector = sp.sector_nombre_sector 
+        AND ent.sectorpartido_id_estadio = sp.sector_id_estadio 
+        AND ent.sectorpartido_id_evento = sp.partido_id_evento
+        AND ent.activo = TRUE
+    WHERE e.activo = TRUE
+    GROUP BY e.pais
+    ORDER BY entradas_vendidas DESC, porcentaje_venta DESC`,
+      [],
+      role,
+    );
+    return rows.map((r) => this.toEquiposPopulares(r));
   }
 }

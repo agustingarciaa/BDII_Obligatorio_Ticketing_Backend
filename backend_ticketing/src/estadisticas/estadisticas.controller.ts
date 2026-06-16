@@ -28,4 +28,9 @@ export class EstadisticasController {
   mayoresCompradores(@CurrentUser() user: AuthUser) {
     return this.estadisticasService.mayoresCompradores(user.role);
   }
+
+  @Get('equipos/populares')
+  equiposPopulares(@CurrentUser() user: AuthUser) {
+    return this.estadisticasService.equiposPopulares(user.role);
+  }
 }
