@@ -14,6 +14,16 @@ export class EstadisticasController {
     return this.estadisticasService.masVendidos(user.role);
   }
 
+  @Get('partidos/menos-vendidos')
+  menosVendidos(@CurrentUser() user: AuthUser) {
+    return this.estadisticasService.menosVendidos(user.role);
+  }
+
+  @Get('sectores/mas-populares')
+  sectoresMasPopulares(@CurrentUser() user: AuthUser) {
+    return this.estadisticasService.sectoresMasPopulares(user.role);
+  }
+
   @Get('usuarios/mayores-compradores')
   mayoresCompradores(@CurrentUser() user: AuthUser) {
     return this.estadisticasService.mayoresCompradores(user.role);
