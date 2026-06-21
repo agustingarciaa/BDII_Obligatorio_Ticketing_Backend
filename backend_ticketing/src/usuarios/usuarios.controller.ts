@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import { Controller, Get, Put, Delete, Body, Query } from '@nestjs/common';
-=======
 import { Controller, Get, Put, Delete, Body } from '@nestjs/common';
->>>>>>> main
 import { UsuariosService } from './usuarios.service';
 import { ModificarUsuarioDto } from './usuarios.dto';
 import { Roles, CurrentUser } from 'src/auth/decorators';
@@ -27,14 +23,6 @@ export class UsuariosController {
     return this.usuarioService.modificarDatos(user.userId, dto, user.role);
   }
 
-<<<<<<< HEAD
-  @Get('buscar')
-  buscarPorMail(@Query('mail') mail: string, @CurrentUser() user: AuthUser) {
-    return this.usuarioService.buscarPorMail(mail, user.userId, user.role);
-  }
-
-=======
->>>>>>> main
   @Delete('eliminar')
   eliminarUsuario(@CurrentUser() user: AuthUser) {
     return this.usuarioService.eliminarUsuario(user.userId, user.role);

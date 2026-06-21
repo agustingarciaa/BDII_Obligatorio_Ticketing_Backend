@@ -133,7 +133,6 @@ export class UsuariosService {
     return { message: 'Datos actualizados correctamente' };
   }
 
-<<<<<<< HEAD
   async buscarPorMail(mail: string, selfId: number, role: Role) {
     if (!mail || mail.trim().length < 3) {
       throw new BadRequestException('Ingresá al menos 3 caracteres para buscar.');
@@ -150,8 +149,6 @@ export class UsuariosService {
     return rows;
   }
 
-=======
->>>>>>> main
   async eliminarUsuario(userId: number, role: Role) {
     const [usuario] = await this.db.query<{ id_usuario: number }>(
       'SELECT id_usuario FROM USUARIO WHERE id_usuario = ? AND activo = TRUE',
