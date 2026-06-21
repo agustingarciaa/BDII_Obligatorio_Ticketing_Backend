@@ -54,6 +54,7 @@ type EstadoEntradaRow = {
   estado: string;
 };
 
+<<<<<<< HEAD
 type CompraAdminRow = {
   id_venta: number;
   fecha: string;
@@ -76,6 +77,8 @@ type TransferenciaAdminRow = {
   destino_mail: string;
 };
 
+=======
+>>>>>>> main
 @Injectable()
 export class EntradasService {
   constructor(private readonly databaseService: DatabaseService) {}
@@ -263,6 +266,10 @@ export class EntradasService {
       );
     }
 
+<<<<<<< HEAD
+=======
+    // Chequear que la entrada existe, está activa y no fue utilizada
+>>>>>>> main
     const [entrada] = await this.databaseService.query<{
       id_boleto: number;
       propietario_id_usuario: number;
@@ -284,6 +291,10 @@ export class EntradasService {
       );
     }
 
+<<<<<<< HEAD
+=======
+    // chequear que aa entrada pertenece a quien la transfiere
+>>>>>>> main
     if (entrada.propietario_id_usuario !== usuarioId) {
       throw new ForbiddenException('La entrada no te pertenece.');
     }
@@ -300,6 +311,10 @@ export class EntradasService {
       );
     }
 
+<<<<<<< HEAD
+=======
+    // El destinatario debe ser usuario general activo
+>>>>>>> main
     const [destinatario] = await this.databaseService.query<{
       id_usuario: number;
     }>(
@@ -313,6 +328,10 @@ export class EntradasService {
       );
     }
 
+<<<<<<< HEAD
+=======
+    // No puede haber otra transferencia pendiente de la misma entrada
+>>>>>>> main
     const [pendiente] = await this.databaseService.query<{
       id_transferencia: number;
     }>(
@@ -328,6 +347,10 @@ export class EntradasService {
       );
     }
 
+<<<<<<< HEAD
+=======
+    // Máximo 3 transferencias aceptadas por entrada
+>>>>>>> main
     const [aceptadas] = await this.databaseService.query<{ n: number }>(
       `SELECT COUNT(*) AS n FROM TRANSFERENCIA
        WHERE entrada_id_boleto = ? AND estado = 'aceptada' AND activo = TRUE`,
@@ -356,6 +379,7 @@ export class EntradasService {
     };
   }
 
+<<<<<<< HEAD
   async listarTodasLasCompras(role: Role) {
     const compras = await this.databaseService.query<CompraAdminRow>(
       `SELECT v.id_venta,
@@ -413,6 +437,8 @@ export class EntradasService {
     return transferencias;
   }
 
+=======
+>>>>>>> main
   async misCompras(usuarioId: number, role: Role) {
     const ventas = await this.databaseService.query<VentaRow>(
       `SELECT v.*, COUNT(e.id_boleto) AS cantidad
@@ -582,6 +608,10 @@ export class EntradasService {
 
     const params: number[] = [entradaId];
 
+<<<<<<< HEAD
+=======
+    // El cliente solo consulta sus propias entradas; el funcionario, cualquiera
+>>>>>>> main
     if (role === Role.CLIENTE) {
       query += ' AND propietario_id_usuario = ?';
       params.push(usuarioId);

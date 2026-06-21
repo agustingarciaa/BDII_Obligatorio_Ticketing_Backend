@@ -18,6 +18,7 @@ import { Role } from '../auth/roles.enum';
 export class EntradasController {
   constructor(private readonly entradasService: EntradasService) {}
 
+<<<<<<< HEAD
   @Roles(Role.ADMIN)
   @Get('admin/compras')
   listarTodasLasCompras(@CurrentUser() user: AuthUser) {
@@ -30,6 +31,8 @@ export class EntradasController {
     return this.entradasService.listarTodasLasTransferencias(user.role);
   }
 
+=======
+>>>>>>> main
   @Get('mis-entradas')
   misEntradas(@CurrentUser() user: AuthUser) {
     return this.entradasService.misEntradas(user.userId, user.role);
@@ -78,7 +81,10 @@ export class EntradasController {
       user.role,
     );
   }
+<<<<<<< HEAD
 
+=======
+>>>>>>> main
   @Roles(Role.CLIENTE, Role.FUNCIONARIO)
   @Get('validacion/:id')
   consultarValidacion(
