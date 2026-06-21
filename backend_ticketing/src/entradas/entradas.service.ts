@@ -54,6 +54,28 @@ type EstadoEntradaRow = {
   estado: string;
 };
 
+type CompraAdminRow = {
+  id_venta: number;
+  fecha: string;
+  estado: string;
+  monto_total: string;
+  tasa_comision: string;
+  id_usuario: number;
+  mail: string;
+  cantidad_entradas: number;
+};
+
+type TransferenciaAdminRow = {
+  id_transferencia: number;
+  fecha: string;
+  estado: string;
+  entrada_id_boleto: number;
+  origen_id_usuario: number;
+  origen_mail: string;
+  destino_id_usuario: number;
+  destino_mail: string;
+};
+
 @Injectable()
 export class EntradasService {
   constructor(private readonly databaseService: DatabaseService) {}
@@ -241,7 +263,6 @@ export class EntradasService {
       );
     }
 
-    // Chequear que la entrada existe, está activa y no fue utilizada
     const [entrada] = await this.databaseService.query<{
       id_boleto: number;
       propietario_id_usuario: number;
@@ -263,7 +284,6 @@ export class EntradasService {
       );
     }
 
-    // chequear que aa entrada pertenece a quien la transfiere
     if (entrada.propietario_id_usuario !== usuarioId) {
       throw new ForbiddenException('La entrada no te pertenece.');
     }
@@ -280,7 +300,6 @@ export class EntradasService {
       );
     }
 
-    // El destinatario debe ser usuario general activo
     const [destinatario] = await this.databaseService.query<{
       id_usuario: number;
     }>(
@@ -294,7 +313,6 @@ export class EntradasService {
       );
     }
 
-    // No puede haber otra transferencia pendiente de la misma entrada
     const [pendiente] = await this.databaseService.query<{
       id_transferencia: number;
     }>(
@@ -310,7 +328,6 @@ export class EntradasService {
       );
     }
 
-    // Máximo 3 transferencias aceptadas por entrada
     const [aceptadas] = await this.databaseService.query<{ n: number }>(
       `SELECT COUNT(*) AS n FROM TRANSFERENCIA
        WHERE entrada_id_boleto = ? AND estado = 'aceptada' AND activo = TRUE`,
@@ -337,6 +354,63 @@ export class EntradasService {
       destino_id_usuario: dto.destino_id_usuario,
       estado: 'pendiente',
     };
+  }
+
+  async listarTodasLasCompras(role: Role) {
+    const compras = await this.databaseService.query<CompraAdminRow>(
+      `SELECT v.id_venta,
+              v.fecha,
+              v.estado,
+              v.monto_total,
+              v.tasa_comision,
+              v.id_usuario,
+              u.mail,
+              COUNT(e.id_boleto) AS cantidad_entradas
+       FROM VENTA v
+       JOIN USUARIO u
+         ON u.id_usuario = v.id_usuario
+       LEFT JOIN ENTRADA e
+         ON e.venta_id_venta = v.id_venta
+        AND e.activo = TRUE
+       WHERE v.activo = TRUE
+       GROUP BY v.id_venta,
+                v.fecha,
+                v.estado,
+                v.monto_total,
+                v.tasa_comision,
+                v.id_usuario,
+                u.mail
+       ORDER BY v.fecha DESC`,
+      [],
+      role,
+    );
+
+    return compras;
+  }
+
+  async listarTodasLasTransferencias(role: Role) {
+    const transferencias =
+      await this.databaseService.query<TransferenciaAdminRow>(
+        `SELECT t.id_transferencia,
+                t.fecha,
+                t.estado,
+                t.entrada_id_boleto,
+                t.origen_id_usuario,
+                uo.mail AS origen_mail,
+                t.destino_id_usuario,
+                ud.mail AS destino_mail
+         FROM TRANSFERENCIA t
+         JOIN USUARIO uo
+           ON uo.id_usuario = t.origen_id_usuario
+         JOIN USUARIO ud
+           ON ud.id_usuario = t.destino_id_usuario
+         WHERE t.activo = TRUE
+         ORDER BY t.fecha DESC`,
+        [],
+        role,
+      );
+
+    return transferencias;
   }
 
   async misCompras(usuarioId: number, role: Role) {
@@ -508,7 +582,6 @@ export class EntradasService {
 
     const params: number[] = [entradaId];
 
-    // El cliente solo consulta sus propias entradas; el funcionario, cualquiera
     if (role === Role.CLIENTE) {
       query += ' AND propietario_id_usuario = ?';
       params.push(usuarioId);

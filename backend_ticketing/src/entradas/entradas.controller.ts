@@ -18,6 +18,18 @@ import { Role } from '../auth/roles.enum';
 export class EntradasController {
   constructor(private readonly entradasService: EntradasService) {}
 
+  @Roles(Role.ADMIN)
+  @Get('admin/compras')
+  listarTodasLasCompras(@CurrentUser() user: AuthUser) {
+    return this.entradasService.listarTodasLasCompras(user.role);
+  }
+
+  @Roles(Role.ADMIN)
+  @Get('admin/transferencias')
+  listarTodasLasTransferencias(@CurrentUser() user: AuthUser) {
+    return this.entradasService.listarTodasLasTransferencias(user.role);
+  }
+
   @Get('mis-entradas')
   misEntradas(@CurrentUser() user: AuthUser) {
     return this.entradasService.misEntradas(user.userId, user.role);
@@ -66,6 +78,7 @@ export class EntradasController {
       user.role,
     );
   }
+
   @Roles(Role.CLIENTE, Role.FUNCIONARIO)
   @Get('validacion/:id')
   consultarValidacion(

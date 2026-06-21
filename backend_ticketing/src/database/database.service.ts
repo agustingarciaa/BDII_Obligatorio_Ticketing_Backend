@@ -75,14 +75,20 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
   async withTransaction<T>(
     fn: (
-      query: <R = unknown>(sql: string, params?: QueryParam[]) => Promise<R[]>,
+      query: <R = unknown>(
+        sql: string,
+
+        params?: QueryParam[],
+      ) => Promise<R[]>,
     ) => Promise<T>,
     role?: Role,
   ): Promise<T> {
     const pool = this.pools.get(role ?? 'sistema')!;
     const connection = await pool.getConnection();
+
     try {
       await connection.beginTransaction();
+
       const result = await fn(
         async <R = unknown>(sql: string, params?: QueryParam[]) => {
           const [rows] = await connection.execute<mysql.RowDataPacket[]>(
@@ -92,6 +98,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
           return rows as R[];
         },
       );
+
       await connection.commit();
       return result;
     } catch (error) {
