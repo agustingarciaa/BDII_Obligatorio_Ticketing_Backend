@@ -54,6 +54,28 @@ type EstadoEntradaRow = {
   estado: string;
 };
 
+type CompraAdminRow = {
+  id_venta: number;
+  fecha: string;
+  estado: string;
+  monto_total: string;
+  tasa_comision: string;
+  id_usuario: number;
+  mail: string;
+  cantidad_entradas: number;
+};
+
+type TransferenciaAdminRow = {
+  id_transferencia: number;
+  fecha: string;
+  estado: string;
+  entrada_id_boleto: number;
+  origen_id_usuario: number;
+  origen_mail: string;
+  destino_id_usuario: number;
+  destino_mail: string;
+};
+
 @Injectable()
 export class EntradasService {
   constructor(private readonly databaseService: DatabaseService) {}
@@ -62,6 +84,7 @@ export class EntradasService {
     const items = this.mergeItems(dto.items);
 
     const totalEntradas = items.reduce((acc, item) => acc + item.cantidad, 0);
+
     if (totalEntradas > MAX_ENTRADAS_POR_VENTA) {
       throw new BadRequestException(
         `No se pueden comprar más de ${MAX_ENTRADAS_POR_VENTA} entradas en la misma transacción.`,
@@ -84,13 +107,13 @@ export class EntradasService {
          FROM SECTOR_PARTIDO sp
          JOIN SECTOR s
            ON s.nombre_sector = sp.sector_nombre_sector
-          AND s.id_estadio    = sp.sector_id_estadio
+          AND s.id_estadio = sp.sector_id_estadio
          JOIN PARTIDO p
            ON p.id_evento = sp.partido_id_evento
-          AND p.activo   = TRUE
+          AND p.activo = TRUE
          WHERE sp.sector_nombre_sector = ?
-           AND sp.sector_id_estadio    = ?
-           AND sp.partido_id_evento    = ?
+           AND sp.sector_id_estadio = ?
+           AND sp.partido_id_evento = ?
            AND sp.activo = TRUE
          LIMIT 1`,
         [
@@ -120,12 +143,14 @@ export class EntradasService {
       });
     }
 
-    // La transacción corre por el pool 'sistema' porque el SELECT ... FOR UPDATE requiere privilegios de bloqueo que el pool del cliente no tiene.
     return this.databaseService.withTransaction(async (query) => {
       for (const item of detalle) {
         await query(
-          `SELECT costo_entrada FROM SECTOR_PARTIDO
-           WHERE sector_nombre_sector = ? AND sector_id_estadio = ? AND partido_id_evento = ?
+          `SELECT costo_entrada
+           FROM SECTOR_PARTIDO
+           WHERE sector_nombre_sector = ?
+             AND sector_id_estadio = ?
+             AND partido_id_evento = ?
            FOR UPDATE`,
           [
             item.sectorpartido_nombre_sector,
@@ -135,10 +160,11 @@ export class EntradasService {
         );
 
         const [vendidas] = await query<{ n: number }>(
-          `SELECT COUNT(*) AS n FROM ENTRADA
+          `SELECT COUNT(*) AS n
+           FROM ENTRADA
            WHERE sectorpartido_nombre_sector = ?
-             AND sectorpartido_id_estadio    = ?
-             AND sectorpartido_id_evento     = ?
+             AND sectorpartido_id_estadio = ?
+             AND sectorpartido_id_evento = ?
              AND activo = TRUE`,
           [
             item.sectorpartido_nombre_sector,
@@ -148,6 +174,7 @@ export class EntradasService {
         );
 
         const disponibles = item.capacidad_max - Number(vendidas.n);
+
         if (item.cantidad > disponibles) {
           throw new ConflictException(
             `No hay lugares suficientes en el sector '${item.sectorpartido_nombre_sector}': quedan ${Math.max(disponibles, 0)} y se pidieron ${item.cantidad}.`,
@@ -159,6 +186,7 @@ export class EntradasService {
         (acc, item) => acc + item.costo_entrada * item.cantidad,
         0,
       );
+
       const montoTotal = Math.round(subtotal * (1 + TASA_COMISION) * 100) / 100;
 
       const ventaResult = await query(
@@ -166,6 +194,7 @@ export class EntradasService {
          VALUES ('realizada', ?, ?, ?)`,
         [montoTotal, TASA_COMISION, usuarioId],
       );
+
       const idVenta = (ventaResult as unknown as { insertId: number }).insertId;
 
       const entradas: {
@@ -180,8 +209,10 @@ export class EntradasService {
         for (let i = 0; i < item.cantidad; i++) {
           const entradaResult = await query(
             `INSERT INTO ENTRADA
-               (venta_id_venta, sectorpartido_nombre_sector,
-                sectorpartido_id_estadio, sectorpartido_id_evento,
+               (venta_id_venta,
+                sectorpartido_nombre_sector,
+                sectorpartido_id_estadio,
+                sectorpartido_id_evento,
                 propietario_id_usuario)
              VALUES (?, ?, ?, ?, ?)`,
             [
@@ -215,23 +246,112 @@ export class EntradasService {
     });
   }
 
-  private mergeItems(items: ItemCompraDto[]): ItemCompraDto[] {
-    const merged = new Map<string, ItemCompraDto>();
+  async listarTodasLasCompras(role: Role) {
+    return this.databaseService.query<CompraAdminRow>(
+      `SELECT v.id_venta,
+              v.fecha,
+              v.estado,
+              v.monto_total,
+              v.tasa_comision,
+              v.id_usuario,
+              u.mail,
+              COUNT(e.id_boleto) AS cantidad_entradas
+       FROM VENTA v
+       JOIN USUARIO u
+         ON u.id_usuario = v.id_usuario
+       LEFT JOIN ENTRADA e
+         ON e.venta_id_venta = v.id_venta
+        AND e.activo = TRUE
+       WHERE v.activo = TRUE
+       GROUP BY v.id_venta,
+                v.fecha,
+                v.estado,
+                v.monto_total,
+                v.tasa_comision,
+                v.id_usuario,
+                u.mail
+       ORDER BY v.fecha DESC`,
+      [],
+      role,
+    );
+  }
 
-    for (const item of items) {
-      const key = `${item.sectorpartido_id_evento}|${item.sectorpartido_id_estadio}|${item.sectorpartido_nombre_sector}`;
-      const existing = merged.get(key);
-      if (existing) {
-        existing.cantidad += item.cantidad;
-      } else {
-        merged.set(key, { ...item });
-      }
-    }
+  async listarTodasLasTransferencias(role: Role) {
+    return this.databaseService.query<TransferenciaAdminRow>(
+      `SELECT t.id_transferencia,
+              t.fecha,
+              t.estado,
+              t.entrada_id_boleto,
+              t.origen_id_usuario,
+              uo.mail AS origen_mail,
+              t.destino_id_usuario,
+              ud.mail AS destino_mail
+       FROM TRANSFERENCIA t
+       JOIN USUARIO uo
+         ON uo.id_usuario = t.origen_id_usuario
+       JOIN USUARIO ud
+         ON ud.id_usuario = t.destino_id_usuario
+       WHERE t.activo = TRUE
+       ORDER BY t.fecha DESC`,
+      [],
+      role,
+    );
+  }
 
-    // si dos compras concurrentes comparten sectores, bloquean las filas en el mismo orden y no se deadlockean.
-    return [...merged.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([, item]) => item);
+  async misCompras(usuarioId: number, role: Role) {
+    return this.databaseService.query<VentaRow>(
+      `SELECT v.*, COUNT(e.id_boleto) AS cantidad
+       FROM VENTA v
+       JOIN ENTRADA e
+         ON e.venta_id_venta = v.id_venta
+       WHERE v.id_usuario = ?
+         AND v.activo = TRUE
+       GROUP BY v.id_venta
+       ORDER BY v.fecha DESC`,
+      [usuarioId],
+      role,
+    );
+  }
+
+  async misTransferencias(usuarioId: number, role: Role) {
+    const transferenciasEnviadas =
+      await this.databaseService.query<TransferenciaRow>(
+        `SELECT *
+         FROM TRANSFERENCIA
+         WHERE origen_id_usuario = ?
+           AND activo = TRUE
+         ORDER BY fecha DESC`,
+        [usuarioId],
+        role,
+      );
+
+    const transferenciasRecibidas =
+      await this.databaseService.query<TransferenciaRow>(
+        `SELECT *
+         FROM TRANSFERENCIA
+         WHERE destino_id_usuario = ?
+           AND activo = TRUE
+         ORDER BY fecha DESC`,
+        [usuarioId],
+        role,
+      );
+
+    return {
+      enviadas: transferenciasEnviadas,
+      recibidas: transferenciasRecibidas,
+    };
+  }
+
+  async misEntradas(usuarioId: number, role: Role) {
+    return this.databaseService.query<EntradaRow>(
+      `SELECT e.*
+       FROM ENTRADA e
+       WHERE e.propietario_id_usuario = ?
+         AND e.estado = 'activo'
+         AND e.activo = TRUE`,
+      [usuarioId],
+      role,
+    );
   }
 
   async transferir(usuarioId: number, dto: TransferirEntradaDto, role: Role) {
@@ -241,17 +361,21 @@ export class EntradasService {
       );
     }
 
-    // Chequear que la entrada existe, está activa y no fue utilizada
     const [entrada] = await this.databaseService.query<{
       id_boleto: number;
       propietario_id_usuario: number;
       estado: string;
       fecha_hora: string | Date;
     }>(
-      `SELECT e.id_boleto, e.propietario_id_usuario, e.estado, p.fecha_hora
+      `SELECT e.id_boleto,
+              e.propietario_id_usuario,
+              e.estado,
+              p.fecha_hora
        FROM ENTRADA e
-       JOIN PARTIDO p ON p.id_evento = e.sectorpartido_id_evento
-       WHERE e.id_boleto = ? AND e.activo = TRUE
+       JOIN PARTIDO p
+         ON p.id_evento = e.sectorpartido_id_evento
+       WHERE e.id_boleto = ?
+         AND e.activo = TRUE
        LIMIT 1`,
       [dto.id_boleto],
       role,
@@ -263,7 +387,6 @@ export class EntradasService {
       );
     }
 
-    // chequear que aa entrada pertenece a quien la transfiere
     if (entrada.propietario_id_usuario !== usuarioId) {
       throw new ForbiddenException('La entrada no te pertenece.');
     }
@@ -280,43 +403,53 @@ export class EntradasService {
       );
     }
 
-    // El destinatario debe ser usuario general activo
     const [destinatario] = await this.databaseService.query<{
       id_usuario: number;
     }>(
-      'SELECT id_usuario FROM USUARIO_GENERAL WHERE id_usuario = ? AND activo = TRUE LIMIT 1',
+      `SELECT id_usuario
+       FROM USUARIO_GENERAL
+       WHERE id_usuario = ?
+         AND activo = TRUE
+       LIMIT 1`,
       [dto.destino_id_usuario],
       role,
     );
+
     if (!destinatario) {
       throw new NotFoundException(
         `No existe un usuario general activo con id ${dto.destino_id_usuario}.`,
       );
     }
 
-    // No puede haber otra transferencia pendiente de la misma entrada
     const [pendiente] = await this.databaseService.query<{
       id_transferencia: number;
     }>(
-      `SELECT id_transferencia FROM TRANSFERENCIA
-       WHERE entrada_id_boleto = ? AND estado = 'pendiente' AND activo = TRUE
+      `SELECT id_transferencia
+       FROM TRANSFERENCIA
+       WHERE entrada_id_boleto = ?
+         AND estado = 'pendiente'
+         AND activo = TRUE
        LIMIT 1`,
       [dto.id_boleto],
       role,
     );
+
     if (pendiente) {
       throw new ConflictException(
         'La entrada ya tiene una transferencia en curso.',
       );
     }
 
-    // Máximo 3 transferencias aceptadas por entrada
     const [aceptadas] = await this.databaseService.query<{ n: number }>(
-      `SELECT COUNT(*) AS n FROM TRANSFERENCIA
-       WHERE entrada_id_boleto = ? AND estado = 'aceptada' AND activo = TRUE`,
+      `SELECT COUNT(*) AS n
+       FROM TRANSFERENCIA
+       WHERE entrada_id_boleto = ?
+         AND estado = 'aceptada'
+         AND activo = TRUE`,
       [dto.id_boleto],
       role,
     );
+
     if (Number(aceptadas.n) >= 3) {
       throw new ConflictException(
         'La entrada ya alcanzó el máximo de 3 transferencias.',
@@ -324,7 +457,8 @@ export class EntradasService {
     }
 
     const result = await this.databaseService.query(
-      `INSERT INTO TRANSFERENCIA (entrada_id_boleto, origen_id_usuario, destino_id_usuario)
+      `INSERT INTO TRANSFERENCIA
+         (entrada_id_boleto, origen_id_usuario, destino_id_usuario)
        VALUES (?, ?, ?)`,
       [dto.id_boleto, usuarioId, dto.destino_id_usuario],
       role,
@@ -339,54 +473,12 @@ export class EntradasService {
     };
   }
 
-  async misCompras(usuarioId: number, role: Role) {
-    const ventas = await this.databaseService.query<VentaRow>(
-      `SELECT v.*, COUNT(e.id_boleto) AS cantidad
-       FROM VENTA v
-       JOIN ENTRADA e ON e.venta_id_venta = v.id_venta
-       WHERE v.id_usuario = ? AND v.activo = TRUE
-       GROUP BY v.id_venta
-       ORDER BY v.fecha DESC`,
-      [usuarioId],
-      role,
-    );
-
-    return ventas;
-  }
-
-  async misTransferencias(usuarioId: number, role: Role) {
-    const transferenciasEnviadas =
-      await this.databaseService.query<TransferenciaRow>(
-        `SELECT *
-         FROM TRANSFERENCIA
-         WHERE origen_id_usuario = ? AND activo = TRUE
-         ORDER BY fecha DESC`,
-        [usuarioId],
-        role,
-      );
-
-    const transferenciasRecibidas =
-      await this.databaseService.query<TransferenciaRow>(
-        `SELECT *
-         FROM TRANSFERENCIA
-         WHERE destino_id_usuario = ? AND activo = TRUE
-         ORDER BY fecha DESC`,
-        [usuarioId],
-        role,
-      );
-
-    return {
-      enviadas: transferenciasEnviadas,
-      recibidas: transferenciasRecibidas,
-    };
-  }
-
   async aceptarTransferencia(
     transferenciaId: number,
     usuarioId: number,
     role: Role,
   ) {
-    const transferencias =
+    const [transferencia] =
       await this.databaseService.query<TransferenciaConEntradaRow>(
         `SELECT t.id_transferencia,
                 t.entrada_id_boleto,
@@ -397,13 +489,13 @@ export class EntradasService {
                 e.estado AS estado_entrada,
                 e.activo
          FROM TRANSFERENCIA t
-         JOIN ENTRADA e ON e.id_boleto = t.entrada_id_boleto
-         WHERE t.id_transferencia = ? AND t.activo = TRUE`,
+         JOIN ENTRADA e
+           ON e.id_boleto = t.entrada_id_boleto
+         WHERE t.id_transferencia = ?
+           AND t.activo = TRUE`,
         [transferenciaId],
         role,
       );
-
-    const transferencia = transferencias[0];
 
     if (transferencia === undefined) {
       throw new NotFoundException('Transferencia no encontrada');
@@ -452,15 +544,15 @@ export class EntradasService {
     usuarioId: number,
     role: Role,
   ) {
-    const transferencias = await this.databaseService.query<TransferenciaRow>(
-      `SELECT *
-       FROM TRANSFERENCIA
-       WHERE id_transferencia = ? AND activo = TRUE`,
-      [transferenciaId],
-      role,
-    );
-
-    const transferencia = transferencias[0];
+    const [transferencia] =
+      await this.databaseService.query<TransferenciaRow>(
+        `SELECT *
+         FROM TRANSFERENCIA
+         WHERE id_transferencia = ?
+           AND activo = TRUE`,
+        [transferenciaId],
+        role,
+      );
 
     if (transferencia === undefined) {
       throw new NotFoundException('Transferencia no encontrada');
@@ -485,20 +577,6 @@ export class EntradasService {
     return { message: 'Transferencia rechazada correctamente' };
   }
 
-  async misEntradas(usuarioId: number, role: Role) {
-    const entradas = await this.databaseService.query<EntradaRow>(
-      `SELECT e.*
-       FROM ENTRADA e
-       WHERE e.propietario_id_usuario = ?
-         AND e.estado = 'activo'
-         AND e.activo = TRUE`,
-      [usuarioId],
-      role,
-    );
-
-    return entradas;
-  }
-
   async consultarValidacion(entradaId: number, usuarioId: number, role: Role) {
     let query = `
       SELECT estado
@@ -508,24 +586,43 @@ export class EntradasService {
 
     const params: number[] = [entradaId];
 
-    // El cliente solo consulta sus propias entradas; el funcionario, cualquiera
     if (role === Role.CLIENTE) {
       query += ' AND propietario_id_usuario = ?';
       params.push(usuarioId);
     }
 
-    const entradas = await this.databaseService.query<EstadoEntradaRow>(
+    const [entrada] = await this.databaseService.query<EstadoEntradaRow>(
       query,
       params,
       role,
     );
 
-    const entrada = entradas[0];
-
     if (entrada === undefined) {
       throw new NotFoundException('Entrada no encontrada');
     }
 
-    return { estado: entrada.estado, validada: entrada.estado === 'utilizada' };
+    return {
+      estado: entrada.estado,
+      validada: entrada.estado === 'utilizada',
+    };
+  }
+
+  private mergeItems(items: ItemCompraDto[]): ItemCompraDto[] {
+    const merged = new Map<string, ItemCompraDto>();
+
+    for (const item of items) {
+      const key = `${item.sectorpartido_id_evento}|${item.sectorpartido_id_estadio}|${item.sectorpartido_nombre_sector}`;
+      const existing = merged.get(key);
+
+      if (existing) {
+        existing.cantidad += item.cantidad;
+      } else {
+        merged.set(key, { ...item });
+      }
+    }
+
+    return [...merged.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([, item]) => item);
   }
 }

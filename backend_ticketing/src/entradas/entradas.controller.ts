@@ -1,22 +1,34 @@
 import {
+  Body,
   Controller,
   Get,
-  Post,
-  Put,
-  Body,
   Param,
   ParseIntPipe,
+  Post,
+  Put,
 } from '@nestjs/common';
-import { EntradasService } from './entradas.service';
-import { ComprarEntradaDto, TransferirEntradaDto } from './entradas.dto';
-import { Roles, CurrentUser } from '../auth/decorators';
+import { CurrentUser, Roles } from '../auth/decorators';
 import type { AuthUser } from '../auth/decorators';
 import { Role } from '../auth/roles.enum';
+import { ComprarEntradaDto, TransferirEntradaDto } from './entradas.dto';
+import { EntradasService } from './entradas.service';
 
 @Controller('entradas')
 @Roles(Role.CLIENTE)
 export class EntradasController {
   constructor(private readonly entradasService: EntradasService) {}
+
+  @Roles(Role.ADMIN)
+  @Get('admin/compras')
+  listarTodasLasCompras(@CurrentUser() user: AuthUser) {
+    return this.entradasService.listarTodasLasCompras(user.role);
+  }
+
+  @Roles(Role.ADMIN)
+  @Get('admin/transferencias')
+  listarTodasLasTransferencias(@CurrentUser() user: AuthUser) {
+    return this.entradasService.listarTodasLasTransferencias(user.role);
+  }
 
   @Get('mis-entradas')
   misEntradas(@CurrentUser() user: AuthUser) {
@@ -66,6 +78,7 @@ export class EntradasController {
       user.role,
     );
   }
+
   @Roles(Role.CLIENTE, Role.FUNCIONARIO)
   @Get('validacion/:id')
   consultarValidacion(
