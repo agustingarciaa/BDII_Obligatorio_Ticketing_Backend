@@ -133,6 +133,22 @@ export class UsuariosService {
     return { message: 'Datos actualizados correctamente' };
   }
 
+  async buscarPorMail(mail: string, selfId: number, role: Role) {
+    if (!mail || mail.trim().length < 3) {
+      throw new BadRequestException('Ingresá al menos 3 caracteres para buscar.');
+    }
+    const rows = await this.db.query<{ id_usuario: number; mail: string }>(
+      `SELECT u.id_usuario, u.mail
+       FROM USUARIO u
+       JOIN USUARIO_GENERAL ug ON ug.id_usuario = u.id_usuario
+       WHERE u.mail LIKE ? AND u.activo = TRUE AND ug.activo = TRUE AND u.id_usuario != ?
+       LIMIT 10`,
+      [`%${mail.trim()}%`, selfId],
+      role,
+    );
+    return rows;
+  }
+
   async eliminarUsuario(userId: number, role: Role) {
     const [usuario] = await this.db.query<{ id_usuario: number }>(
       'SELECT id_usuario FROM USUARIO WHERE id_usuario = ? AND activo = TRUE',
