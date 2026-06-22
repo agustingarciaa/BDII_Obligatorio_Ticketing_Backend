@@ -24,6 +24,16 @@ type MisSectorRow = SectorRow & {
   sectorpartido_id_evento: number;
 };
 
+type AsignacionRow = {
+  funcionario_id_usuario: number;
+  numero_legajo: number;
+  mail: string;
+  sectorpartido_nombre_sector: string | null;
+  sectorpartido_id_estadio: number | null;
+  sectorpartido_id_evento: number | null;
+  activo: number | boolean | null;
+};
+
 @Injectable()
 export class SectoresService {
   constructor(private readonly databaseService: DatabaseService) {}
@@ -345,6 +355,37 @@ export class SectoresService {
     }));
   }
 
+  async asignaciones(role: Role) {
+    const rows = await this.databaseService.query<AsignacionRow>(
+      `SELECT fv.id_usuario AS funcionario_id_usuario,
+              fv.numero_legajo,
+              u.mail,
+              fsp.sectorpartido_nombre_sector,
+              fsp.sectorpartido_id_estadio,
+              fsp.sectorpartido_id_evento,
+              fsp.activo
+       FROM FUNCIONARIO_VALIDACION fv
+       JOIN USUARIO u ON u.id_usuario = fv.id_usuario
+       LEFT JOIN FUNCIONARIO_SECTOR_PARTIDO fsp
+         ON fsp.funcionario_id_usuario = fv.id_usuario
+        AND fsp.activo = TRUE
+       WHERE fv.activo = TRUE
+       ORDER BY fv.numero_legajo, fsp.sectorpartido_id_evento`,
+      [],
+      role,
+    );
+
+    return rows.map((r) => ({
+      funcionario_id_usuario: r.funcionario_id_usuario,
+      numero_legajo: r.numero_legajo,
+      mail: r.mail,
+      sectorpartido_nombre_sector: r.sectorpartido_nombre_sector ?? null,
+      sectorpartido_id_estadio: r.sectorpartido_id_estadio ?? null,
+      sectorpartido_id_evento: r.sectorpartido_id_evento ?? null,
+      activo: r.activo != null ? Boolean(r.activo) : null,
+    }));
+  }
+
   async asignarFuncionario(
     dto: AsignarFuncionarioSectorDto,
     userId: number,
@@ -458,5 +499,61 @@ export class SectoresService {
     );
 
     return { assigned: true };
+  }
+
+  async desasignarFuncionario(
+    dto: AsignarFuncionarioSectorDto,
+    userId: number,
+    _role: Role,
+  ) {
+    await this.validarJurisdiccionAdmin(userId, dto.sectorpartido_id_estadio);
+
+    const [existing] = await this.databaseService.query<{
+      funcionario_id_usuario: number;
+      activo: number | boolean;
+    }>(
+      `SELECT funcionario_id_usuario, activo
+       FROM FUNCIONARIO_SECTOR_PARTIDO
+       WHERE funcionario_id_usuario = ?
+         AND sectorpartido_nombre_sector = ?
+         AND sectorpartido_id_estadio = ?
+         AND sectorpartido_id_evento = ?
+       LIMIT 1`,
+      [
+        dto.funcionario_id_usuario,
+        dto.sectorpartido_nombre_sector,
+        dto.sectorpartido_id_estadio,
+        dto.sectorpartido_id_evento,
+      ],
+    );
+
+    if (!existing) {
+      throw new NotFoundException(
+        'No existe esa asignación del funcionario al sector-partido.',
+      );
+    }
+
+    if (!existing.activo) {
+      throw new ConflictException(
+        'El funcionario ya está desasignado de ese sector-partido.',
+      );
+    }
+
+    await this.databaseService.query(
+      `UPDATE FUNCIONARIO_SECTOR_PARTIDO
+       SET activo = FALSE
+       WHERE funcionario_id_usuario = ?
+         AND sectorpartido_nombre_sector = ?
+         AND sectorpartido_id_estadio = ?
+         AND sectorpartido_id_evento = ?`,
+      [
+        dto.funcionario_id_usuario,
+        dto.sectorpartido_nombre_sector,
+        dto.sectorpartido_id_estadio,
+        dto.sectorpartido_id_evento,
+      ],
+    );
+
+    return { unassigned: true };
   }
 }

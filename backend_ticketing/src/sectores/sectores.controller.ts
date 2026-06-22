@@ -78,11 +78,26 @@ export class SectoresController {
   }
 
   @Roles(Role.ADMIN)
+  @Get('asignaciones')
+  asignaciones(@CurrentUser() user: AuthUser) {
+    return this.sectoresService.asignaciones(user.role);
+  }
+
+  @Roles(Role.ADMIN)
   @Post('asignar-funcionario')
   asignarFuncionario(
     @Body() dto: AsignarFuncionarioSectorDto,
     @CurrentUser() user: AuthUser,
   ) {
     return this.sectoresService.asignarFuncionario(dto, user.userId, user.role);
+  }
+
+  @Roles(Role.ADMIN)
+  @Delete('desasignar-funcionario')
+  desasignarFuncionario(
+    @Body() dto: AsignarFuncionarioSectorDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.sectoresService.desasignarFuncionario(dto, user.userId, user.role);
   }
 }
