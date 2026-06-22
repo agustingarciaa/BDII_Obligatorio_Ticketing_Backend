@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { Role } from '../auth/roles.enum';
-import { CreateDispositivoDto } from './dispositivos.dto';
+import { CreateDispositivoDto, UpdateDispositivoDto } from './dispositivos.dto';
 
 type DispositivoRow = {
   id_dispositivo: number;
@@ -13,6 +13,13 @@ type DispositivoRow = {
   activo: number | boolean;
   numero_legajo: number;
   mail: string;
+};
+
+type FuncionarioRow = {
+  id_usuario: number;
+  numero_legajo: number;
+  mail: string;
+  tiene_dispositivo: number | boolean;
 };
 
 const SELECT_DISPOSITIVO = `
@@ -125,6 +132,89 @@ export class DispositivosService {
     );
 
     return this.toDispositivo(created);
+  }
+
+  // Lista de funcionarios activos para vincular dispositivos.
+  async listarFuncionarios(role: Role) {
+    const rows = await this.databaseService.query<FuncionarioRow>(
+      `SELECT fv.id_usuario, fv.numero_legajo, u.mail,
+              EXISTS(
+                SELECT 1 FROM DISPOSITIVO d
+                WHERE d.fun_id_usuario = fv.id_usuario AND d.activo = TRUE
+              ) AS tiene_dispositivo
+       FROM FUNCIONARIO_VALIDACION fv
+       JOIN USUARIO u ON u.id_usuario = fv.id_usuario
+       WHERE fv.activo = TRUE
+       ORDER BY fv.numero_legajo`,
+      [],
+      role,
+    );
+
+    return rows.map((r) => ({
+      id_usuario: r.id_usuario,
+      numero_legajo: r.numero_legajo,
+      mail: r.mail,
+      tiene_dispositivo: Boolean(r.tiene_dispositivo),
+    }));
+  }
+
+  async update(id: number, dto: UpdateDispositivoDto, role: Role) {
+    const [dispositivo] = await this.databaseService.query<{
+      id_dispositivo: number;
+      fun_id_usuario: number;
+    }>(
+      'SELECT id_dispositivo, fun_id_usuario FROM DISPOSITIVO WHERE id_dispositivo = ? AND activo = TRUE LIMIT 1',
+      [id],
+      role,
+    );
+
+    if (!dispositivo) {
+      throw new NotFoundException(
+        `No existe un dispositivo activo con id ${id}.`,
+      );
+    }
+
+    // Sin cambios: ya está vinculado a ese funcionario.
+    if (dispositivo.fun_id_usuario === dto.fun_id_usuario) {
+      return this.findOne(id, role);
+    }
+
+    const [funcionario] = await this.databaseService.query<{
+      id_usuario: number;
+    }>(
+      'SELECT id_usuario FROM FUNCIONARIO_VALIDACION WHERE id_usuario = ? AND activo = TRUE LIMIT 1',
+      [dto.fun_id_usuario],
+      role,
+    );
+
+    if (!funcionario) {
+      throw new NotFoundException(
+        `No existe un funcionario activo con id ${dto.fun_id_usuario}.`,
+      );
+    }
+
+    // verificar que funcionario destino no tenga otro dispositivo.
+    const [otro] = await this.databaseService.query<{
+      id_dispositivo: number;
+    }>(
+      'SELECT id_dispositivo FROM DISPOSITIVO WHERE fun_id_usuario = ? LIMIT 1',
+      [dto.fun_id_usuario],
+      role,
+    );
+
+    if (otro) {
+      throw new ConflictException(
+        `El funcionario ${dto.fun_id_usuario} ya tiene un dispositivo asociado (id: ${otro.id_dispositivo}).`,
+      );
+    }
+
+    await this.databaseService.query(
+      'UPDATE DISPOSITIVO SET fun_id_usuario = ? WHERE id_dispositivo = ?',
+      [dto.fun_id_usuario, id],
+      role,
+    );
+
+    return this.findOne(id, role);
   }
 
   async remove(id: number, role: Role) {

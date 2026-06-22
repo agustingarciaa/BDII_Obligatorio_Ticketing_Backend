@@ -5,3 +5,9 @@ export class CreateDispositivoDto {
   @IsPositive()
   fun_id_usuario!: number;
 }
+
+export class UpdateDispositivoDto {
+  @IsInt()
+  @IsPositive()
+  fun_id_usuario!: number;
+}
