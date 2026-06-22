@@ -98,6 +98,10 @@ export class SectoresController {
     @Body() dto: AsignarFuncionarioSectorDto,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.sectoresService.desasignarFuncionario(dto, user.userId, user.role);
+    return this.sectoresService.desasignarFuncionario(
+      dto,
+      user.userId,
+      user.role,
+    );
   }
 }
