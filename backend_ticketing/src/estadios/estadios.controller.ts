@@ -1,18 +1,18 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
   Body,
+  Controller,
+  Delete,
+  Get,
   Param,
   ParseIntPipe,
+  Post,
+  Put,
 } from '@nestjs/common';
-import { EstadiosService } from './estadios.service';
-import { CreateEstadioDto, UpdateEstadioDto } from './estadios.dto';
-import { Roles, CurrentUser } from '../auth/decorators';
+import { CurrentUser, Roles } from '../auth/decorators';
 import type { AuthUser } from '../auth/decorators';
 import { Role } from '../auth/roles.enum';
+import { CreateEstadioDto, UpdateEstadioDto } from './estadios.dto';
+import { EstadiosService } from './estadios.service';
 
 @Controller('estadios')
 export class EstadiosController {
@@ -20,7 +20,7 @@ export class EstadiosController {
 
   @Get()
   findAll(@CurrentUser() user: AuthUser) {
-    return this.estadiosService.findAll(user.role);
+    return this.estadiosService.findAll(user.userId, user.role);
   }
 
   @Get(':id')
@@ -28,13 +28,13 @@ export class EstadiosController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.estadiosService.findOne(id, user.role);
+    return this.estadiosService.findOne(id, user.userId, user.role);
   }
 
   @Roles(Role.ADMIN)
   @Post()
   create(@Body() dto: CreateEstadioDto, @CurrentUser() user: AuthUser) {
-    return this.estadiosService.create(dto, user.role);
+    return this.estadiosService.create(dto, user.userId, user.role);
   }
 
   @Roles(Role.ADMIN)
@@ -44,12 +44,12 @@ export class EstadiosController {
     @Body() dto: UpdateEstadioDto,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.estadiosService.update(id, dto, user.role);
+    return this.estadiosService.update(id, dto, user.userId, user.role);
   }
 
   @Roles(Role.ADMIN)
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthUser) {
-    return this.estadiosService.remove(id, user.role);
+    return this.estadiosService.remove(id, user.userId, user.role);
   }
 }
