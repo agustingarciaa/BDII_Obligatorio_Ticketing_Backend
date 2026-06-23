@@ -404,10 +404,10 @@ export class SectoresService {
       id_usuario: number;
     }>(
       `SELECT id_usuario
-       FROM FUNCIONARIO_VALIDACION
-       WHERE id_usuario = ?
-         AND activo = TRUE
-       LIMIT 1`,
+     FROM FUNCIONARIO_VALIDACION
+     WHERE id_usuario = ?
+       AND activo = TRUE
+     LIMIT 1`,
       [funcionario_id_usuario],
     );
 
@@ -419,12 +419,12 @@ export class SectoresService {
       sector_nombre_sector: string;
     }>(
       `SELECT sector_nombre_sector
-       FROM SECTOR_PARTIDO
-       WHERE sector_nombre_sector = ?
-         AND sector_id_estadio = ?
-         AND partido_id_evento = ?
-         AND activo = TRUE
-       LIMIT 1`,
+     FROM SECTOR_PARTIDO
+     WHERE sector_nombre_sector = ?
+       AND sector_id_estadio = ?
+       AND partido_id_evento = ?
+       AND activo = TRUE
+     LIMIT 1`,
       [
         sectorpartido_nombre_sector,
         sectorpartido_id_estadio,
@@ -438,17 +438,42 @@ export class SectoresService {
       );
     }
 
+    const [asignacionOtroPartidoMismoDia] = await this.databaseService.query<{
+      partido_id_evento: number;
+    }>(
+      `SELECT fsp.sectorpartido_id_evento AS partido_id_evento
+       FROM FUNCIONARIO_SECTOR_PARTIDO fsp
+       JOIN PARTIDO p_asignado
+         ON p_asignado.id_evento = fsp.sectorpartido_id_evento
+       JOIN PARTIDO p_nuevo
+         ON p_nuevo.id_evento = ?
+       WHERE fsp.funcionario_id_usuario = ?
+         AND fsp.activo = TRUE
+         AND p_asignado.activo = TRUE
+         AND p_nuevo.activo = TRUE
+         AND DATE(p_asignado.fecha_hora) = DATE(p_nuevo.fecha_hora)
+         AND p_asignado.id_evento <> p_nuevo.id_evento
+       LIMIT 1`,
+      [sectorpartido_id_evento, funcionario_id_usuario],
+    );
+
+    if (asignacionOtroPartidoMismoDia) {
+      throw new ConflictException(
+        'El funcionario ya está asignado a otro partido en ese día.',
+      );
+    }
+
     const existingRows = await this.databaseService.query<{
       funcionario_id_usuario: number;
       activo: number | boolean;
     }>(
       `SELECT funcionario_id_usuario, activo
-       FROM FUNCIONARIO_SECTOR_PARTIDO
-       WHERE funcionario_id_usuario = ?
-         AND sectorpartido_nombre_sector = ?
-         AND sectorpartido_id_estadio = ?
-         AND sectorpartido_id_evento = ?
-       LIMIT 1`,
+     FROM FUNCIONARIO_SECTOR_PARTIDO
+     WHERE funcionario_id_usuario = ?
+       AND sectorpartido_nombre_sector = ?
+       AND sectorpartido_id_estadio = ?
+       AND sectorpartido_id_evento = ?
+     LIMIT 1`,
       [
         funcionario_id_usuario,
         sectorpartido_nombre_sector,
@@ -466,11 +491,11 @@ export class SectoresService {
 
       await this.databaseService.query(
         `UPDATE FUNCIONARIO_SECTOR_PARTIDO
-         SET activo = TRUE
-         WHERE funcionario_id_usuario = ?
-           AND sectorpartido_nombre_sector = ?
-           AND sectorpartido_id_estadio = ?
-           AND sectorpartido_id_evento = ?`,
+       SET activo = TRUE
+       WHERE funcionario_id_usuario = ?
+         AND sectorpartido_nombre_sector = ?
+         AND sectorpartido_id_estadio = ?
+         AND sectorpartido_id_evento = ?`,
         [
           funcionario_id_usuario,
           sectorpartido_nombre_sector,
@@ -484,12 +509,12 @@ export class SectoresService {
 
     await this.databaseService.query(
       `INSERT INTO FUNCIONARIO_SECTOR_PARTIDO
-       (funcionario_id_usuario,
-        sectorpartido_nombre_sector,
-        sectorpartido_id_estadio,
-        sectorpartido_id_evento,
-        activo)
-       VALUES (?, ?, ?, ?, TRUE)`,
+     (funcionario_id_usuario,
+      sectorpartido_nombre_sector,
+      sectorpartido_id_estadio,
+      sectorpartido_id_evento,
+      activo)
+     VALUES (?, ?, ?, ?, TRUE)`,
       [
         funcionario_id_usuario,
         sectorpartido_nombre_sector,
