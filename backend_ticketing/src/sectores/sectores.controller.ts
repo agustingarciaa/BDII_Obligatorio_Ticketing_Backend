@@ -34,6 +34,12 @@ export class SectoresController {
     return this.sectoresService.misSectores(user.userId, user.role);
   }
 
+  @Roles(Role.ADMIN)
+  @Get('asignaciones')
+  asignaciones(@CurrentUser() user: AuthUser) {
+    return this.sectoresService.asignaciones(user.role);
+  }
+
   @Get(':id')
   findOne(
     @Param('id', ParseIntPipe) id: number,
@@ -75,12 +81,6 @@ export class SectoresController {
       user.userId,
       user.role,
     );
-  }
-
-  @Roles(Role.ADMIN)
-  @Get('asignaciones')
-  asignaciones(@CurrentUser() user: AuthUser) {
-    return this.sectoresService.asignaciones(user.role);
   }
 
   @Roles(Role.ADMIN)
