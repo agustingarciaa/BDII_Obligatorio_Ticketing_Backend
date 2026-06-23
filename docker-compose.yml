@@ -3,6 +3,7 @@ services:
     build:
       context: ./backend_ticketing
       dockerfile: Dockerfile
+    image: ticketing_backend
     ports:
       - "${PORT}:${PORT}"
     environment:
@@ -17,6 +18,28 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Seed automático de datos de prueba. Solo seedea si la base aún no tiene
+  # datos bulk (SEED_SKIP_IF_EXISTS=1), así corre efectivamente la primera vez.
+  seeder:
+    image: ticketing_backend
+    environment:
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - SEED_SKIP_IF_EXISTS=1
+    volumes:
+      - ./backend_ticketing/scripts:/app/scripts:ro
+    working_dir: /app
+    command: ["node", "scripts/seed-masivo.mjs"]
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    restart: "no"
+
   db:
     image: mysql:8.4
     ports:
@@ -29,7 +52,6 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-      - ./db/inserts.sql:/docker-entrypoint-initdb.d/inserts.sql:ro
     healthcheck:
       test:
         [
