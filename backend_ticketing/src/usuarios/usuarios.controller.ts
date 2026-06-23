@@ -10,11 +10,14 @@ import { Role } from '../auth/roles.enum';
 export class UsuariosController {
   constructor(private readonly usuarioService: UsuariosService) {}
 
+
+  @Roles(Role.CLIENTE, Role.ADMIN)
   @Get('info')
   misDatos(@CurrentUser() user: AuthUser) {
     return this.usuarioService.misDatos(user.userId, user.role);
   }
 
+  @Roles(Role.CLIENTE, Role.ADMIN)
   @Put('info/modificar')
   modificarDatos(
     @CurrentUser() user: AuthUser,

@@ -34,6 +34,12 @@ export class SectoresController {
     return this.sectoresService.misSectores(user.userId, user.role);
   }
 
+  @Roles(Role.ADMIN)
+  @Get('asignaciones')
+  asignaciones(@CurrentUser() user: AuthUser) {
+    return this.sectoresService.asignaciones(user.role);
+  }
+
   @Get(':id')
   findOne(
     @Param('id', ParseIntPipe) id: number,
@@ -84,5 +90,18 @@ export class SectoresController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.sectoresService.asignarFuncionario(dto, user.userId, user.role);
+  }
+
+  @Roles(Role.ADMIN)
+  @Delete('desasignar-funcionario')
+  desasignarFuncionario(
+    @Body() dto: AsignarFuncionarioSectorDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.sectoresService.desasignarFuncionario(
+      dto,
+      user.userId,
+      user.role,
+    );
   }
 }
