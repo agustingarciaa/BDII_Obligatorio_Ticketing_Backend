@@ -207,7 +207,7 @@ export class EstadisticasService {
   async equiposPopulares(role: Role) {
     const rows = await this.databaseService.query<EquipoPopularRow>(
       `SELECT 
-    e.pais AS equipo,
+    e.pais,
     COUNT(DISTINCT p.id_evento) AS partidos_jugados,
     SUM(s.capacidad_max) AS capacidad_total,
     COUNT(ent.id_boleto) AS entradas_vendidas,
